@@ -150,16 +150,18 @@ func (c *UserController) ModifyUser() {
 	ipns := user.Ipns
 	if ipns != "" {
 		logs.Info("ipns = ", ipns)
-		CurUser.Ipns = ipns
-		if walletAddress == "" {
-			walletAddress = CurUser.Address
-		}
-		logs.Info("wallet address = ", walletAddress)
-		success, err := utils.SetDFSPath(walletAddress, ipns, user.Sign) // 更新钱包中用户的dfs地址
-		if !success {
-			logs.Error(err)
-			c.ErrorJson("400000", err.Error())
-			return
+		if ipns != CurUser.Ipns {
+			CurUser.Ipns = ipns
+			if walletAddress == "" {
+				walletAddress = CurUser.Address
+			}
+			logs.Info("wallet address = ", walletAddress)
+			success, err := utils.SetDFSPath(walletAddress, ipns, user.Sign) // 更新钱包中用户的dfs地址
+			if !success {
+				logs.Error(err)
+				c.ErrorJson("400000", err.Error())
+				return
+			}
 		}
 	}
 
