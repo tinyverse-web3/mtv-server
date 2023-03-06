@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"mtv/models"
 	"mtv/utils"
+	"mtv/utils/crypto"
 	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/client/orm"
+	"github.com/beego/beego/v2/core/config"
 	"github.com/beego/beego/v2/core/logs"
 )
 
@@ -94,11 +96,11 @@ func (c *UserController) GetUserInfo() {
 	// curUser := c.CurUser()
 	var user UserInfo
 
-	// key, _ := config.String("crypto")
-	// deKey := crypto.DecryptBase64(key)
-	// ct := crypto.DecryptAES(curUser.SssData, deKey)
-	// user.SssData = ct
-	user.SssData = CurUser.SssData
+	key, _ := config.String("crypto")
+	deKey := crypto.DecryptBase64(key)
+	ct := crypto.DecryptAES(CurUser.SssData, deKey)
+	user.SssData = ct
+	// user.SssData = CurUser.SssData
 
 	walletAddress := CurUser.Address
 	ipns, _ := utils.GetDFSPath(walletAddress)
@@ -112,18 +114,19 @@ func (c *UserController) ModifyUser() {
 	var user models.User
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &user)
-
+	logs.Info("user = ", user)
 	o := orm.NewOrm()
 	sssData := user.SssData
 	if sssData != "" {
-		// key, _ := config.String("crypto")
-		// logs.Info("key = ", key)
-		// deKey := crypto.DecryptBase64(key)
-		// logs.Info("deKey = ", deKey)
-		// logs.Info("sssData = ", sssData)
-		// enData := crypto.EncryptAES(sssData, deKey)
-		// curUser.SssData = enData
-		CurUser.SssData = sssData
+		key, _ := config.String("crypto")
+		logs.Info("key = ", key)
+		deKey := crypto.DecryptBase64(key)
+		logs.Info("deKey = ", deKey)
+		logs.Info("sssData = ", sssData)
+		enData := crypto.EncryptAES(sssData, deKey)
+		logs.Info("enData = ", enData)
+		CurUser.SssData = enData
+		// CurUser.SssData = sssData
 	}
 
 	nostrPublicKey := user.NostrPublicKey
