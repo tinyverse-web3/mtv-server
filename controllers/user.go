@@ -59,8 +59,9 @@ func (c *UserController) Login() {
 	// 判断验证码是否过期
 	confirmCodeUpdateTime := user.ConfirmCodeUpdateTime
 	curTime := time.Now()
-	if curTime.Sub(confirmCodeUpdateTime).Hours() > 744 { // 验证码31天失效
+	if curTime.Sub(confirmCodeUpdateTime).Seconds() > 60 { // 验证码1分钟失效
 		c.ErrorJson("400000", "验证码已过期")
+		return
 	}
 
 	user.ConfirmCode = oriConfirmCode
@@ -197,12 +198,17 @@ func (c *UserController) SendMail() {
 		return
 	}
 
-	status := checkUserStatus(email)
+	o := orm.NewOrm()
+	tmpUser := models.User{Email: email}
+	status := -1
+	err := o.Read(&tmpUser, "email")
+	if err != orm.ErrNoRows {
+		status = tmpUser.Status
+	}
 
 	// confirmCode := utils.RandomNum(6)
 	confirmCode := "123456"
 
-	o := orm.NewOrm()
 	if status == -1 { // email不存在
 		user = models.User{Email: email, ConfirmCode: confirmCode, Status: 0, ConfirmCodeUpdateTime: time.Now()}
 		_, err := o.Insert(&user)
@@ -211,6 +217,23 @@ func (c *UserController) SendMail() {
 			c.ErrorJson("400000", "Send mail faild!")
 			return
 		}
+	} else {
+		logs.Info("1111111111")
+		// 如果email存在，判断发送email的频率
+		confirmCodeUpdateTime := tmpUser.ConfirmCodeUpdateTime
+		logs.Info(tmpUser)
+		logs.Info(confirmCodeUpdateTime)
+		logs.Info(confirmCodeUpdateTime.Unix())
+		logs.Info(confirmCodeUpdateTime.IsZero())
+		curTime := time.Now()
+		logs.Info(curTime)
+		logs.Info(curTime.Unix())
+		logs.Info(curTime.IsZero())
+		if curTime.Sub(confirmCodeUpdateTime).Seconds() < 60 {
+			c.ErrorJson("400000", "验证码已发送，请查看邮箱。")
+			return
+		}
+		logs.Info("22222222")
 	}
 
 	subject := "发送验证码"
