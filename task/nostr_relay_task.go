@@ -66,4 +66,5 @@ func updateRelayStatus(o orm.Ormer, value models.NostrRelay) {
 	if err != nil {
 		logs.Error(err)
 	}
+
 }

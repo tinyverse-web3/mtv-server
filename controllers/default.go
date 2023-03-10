@@ -55,6 +55,7 @@ func (c *BaseController) Prepare() {
 		"/v0/user/sendmail",
 		"/v0/storage/test",
 		"/v0/im/relays",
+		"/v0/im/exchangeimpkey",
 	}
 	if !isContain(uris, uri) {
 		tmp := c.Ctx.Request.Header["Authorization"] // 格式：Bearer xxx

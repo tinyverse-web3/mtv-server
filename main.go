@@ -17,5 +17,6 @@ func main() {
 
 	beego.AddFuncMap("i18n", i18n.Tr)
 	task.StartTask()
+
 	beego.Run()
 }
