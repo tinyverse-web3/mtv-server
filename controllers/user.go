@@ -82,6 +82,12 @@ func (c *UserController) GetImPubKeyList() {
 
 	user := new(models.User)
 	qt := orm.NewOrm().QueryTable(user)
+
+	email := c.GetString("email")
+	if email != "" {
+		qt = qt.Filter("email", email)
+	}
+
 	qt.Exclude("email__in", CurUser.Email).All(&data, "Email", "NostrPublicKey")
 	c.SuccessJson("", data)
 }
@@ -218,22 +224,13 @@ func (c *UserController) SendMail() {
 			return
 		}
 	} else {
-		logs.Info("1111111111")
 		// 如果email存在，判断发送email的频率
 		confirmCodeUpdateTime := tmpUser.ConfirmCodeUpdateTime
-		logs.Info(tmpUser)
-		logs.Info(confirmCodeUpdateTime)
-		logs.Info(confirmCodeUpdateTime.Unix())
-		logs.Info(confirmCodeUpdateTime.IsZero())
 		curTime := time.Now()
-		logs.Info(curTime)
-		logs.Info(curTime.Unix())
-		logs.Info(curTime.IsZero())
 		if curTime.Sub(confirmCodeUpdateTime).Seconds() < 60 {
 			c.ErrorJson("400000", "验证码已发送，请查看邮箱。")
 			return
 		}
-		logs.Info("22222222")
 	}
 
 	subject := "发送验证码"

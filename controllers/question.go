@@ -5,7 +5,6 @@ import (
 	"mtv/models"
 
 	"github.com/beego/beego/v2/client/orm"
-	"github.com/beego/beego/v2/core/logs"
 )
 
 type QuestionController struct {
@@ -24,9 +23,6 @@ func (c *QuestionController) List() {
 	var data []models.Question
 	question := new(models.Question)
 	qt := orm.NewOrm().QueryTable(question)
-	logs.Info("++++++++++")
-	logs.Info(CurUser.Id)
-	logs.Info("++++++++++")
 	qt.Filter("user_id", CurUser.Id).All(&data, "Id", "Content")
 	c.SuccessJson("", data)
 }

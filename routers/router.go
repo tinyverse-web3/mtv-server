@@ -11,6 +11,7 @@ func init() {
 	logs.Info("router start")
 
 	ns := beego.NewNamespace("/v0",
+		beego.NSAutoRouter(&controllers.ImController{}),
 		beego.NSAutoRouter(&controllers.QuestionController{}),
 		beego.NSAutoRouter(&controllers.StorageController{}),
 		beego.NSAutoRouter(&controllers.UserController{}),

@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "mtv/routers"
+	"mtv/task"
 	"mtv/utils"
 
 	beego "github.com/beego/beego/v2/server/web"
@@ -15,6 +16,6 @@ func main() {
 	// utils.InitRedis()
 
 	beego.AddFuncMap("i18n", i18n.Tr)
-
+	task.StartTask()
 	beego.Run()
 }
