@@ -61,12 +61,12 @@ func (c *BaseController) Prepare() {
 		tmp := c.Ctx.Request.Header["Authorization"] // 格式：Bearer xxx
 		if tmp == nil {
 			logs.Info("00000")
-			c.ErrorJson("400000", "用户未登录")
+			c.ErrorJson("600000", "用户未登录")
 			return
 		} else {
 			if len(strings.Split(tmp[0], " ")) != 2 {
 				logs.Info("22222")
-				c.ErrorJson("400000", "用户未登录")
+				c.ErrorJson("600000", "用户未登录")
 				return
 			}
 			token := strings.Split(tmp[0], " ")[1]
@@ -76,13 +76,13 @@ func (c *BaseController) Prepare() {
 			err := o.Read(&user, "token")
 			if err != nil {
 				logs.Info("11111")
-				c.ErrorJson("400000", "用户未登录")
+				c.ErrorJson("600000", "用户未登录")
 				return
 			} else {
 				tokenUpdateTime := user.TokenUpdateTime
 				curTime := time.Now()
 				if curTime.Sub(tokenUpdateTime).Hours() > 168 { // token失效时间：7*24h
-					c.ErrorJson("400000", "登录已过期")
+					c.ErrorJson("600000", "登录已过期")
 					return
 				} else {
 					user.TokenUpdateTime = time.Now()

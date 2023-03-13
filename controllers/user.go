@@ -151,10 +151,12 @@ func (c *UserController) ModifyUser() {
 		if name != CurUser.Name {
 			var data []models.User
 			qt := orm.NewOrm().QueryTable(user)
-			qt.Exclude("id__in", CurUser.Id).All(&data)
+			qt.Filter("name", name).Exclude("id__in", CurUser.Id).All(&data)
 			if len(data) > 0 {
 				c.ErrorJson("400000", "用户名已存在。")
 				return
+			} else {
+				CurUser.Name = name
 			}
 		}
 	}
