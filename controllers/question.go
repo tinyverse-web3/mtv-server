@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"encoding/json"
+	"hash/fnv"
+	"math/rand"
 	"mtv/models"
 
 	"github.com/beego/beego/v2/client/orm"
@@ -13,9 +15,21 @@ type QuestionController struct {
 
 func (c *QuestionController) TmpList() {
 	var data []models.QuestionTmp
+	var tmp []models.QuestionTmp
 	question := new(models.QuestionTmp)
 	qt := orm.NewOrm().QueryTable(question)
-	qt.All(&data, "Id", "Content")
+	qt.OrderBy("id").All(&tmp, "Id", "Content")
+
+	h := fnv.New64a()
+	h.Write([]byte(CurUser.Email))
+	seed := int64(h.Sum64())
+	rand.Seed(seed)
+
+	for i := 0; i <= 2; i++ {
+		index := rand.Intn(len(tmp))
+		item := tmp[index]
+		data = append(data, item)
+	}
 	c.SuccessJson("", data)
 }
 

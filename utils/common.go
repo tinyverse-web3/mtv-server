@@ -15,6 +15,7 @@ func RandomNum(length int) string {
 		num := rand.Intn(10)
 		result = result + strconv.Itoa(num)
 	}
+
 	return result
 }
 
