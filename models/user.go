@@ -7,6 +7,7 @@ import (
 // 定义表结构
 type User struct {
 	Id                    int       `orm:"auto; pk"`
+	Name                  string    `orm:"size(32); unique;" json:"name"`
 	Email                 string    `orm:"size(255); unique;" json:"email"`
 	Mobile                string    `orm:"size(255); unique;" json:"mobile"`
 	NostrPublicKey        string    `orm:"size(128); null" json:"nostrPublicKey"`

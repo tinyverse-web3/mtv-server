@@ -40,6 +40,10 @@ func (c *UserController) Login() {
 	}
 
 	confirmCode := user.ConfirmCode
+	if strings.TrimSpace(confirmCode) == "" {
+		c.ErrorJson("400000", "验证码不能为空")
+		return
+	}
 	o := orm.NewOrm()
 
 	err := o.Read(&user, "email")
@@ -47,9 +51,9 @@ func (c *UserController) Login() {
 		c.ErrorJson("400000", email+"不存在")
 		return
 	}
-	oriConfirmCode := user.ConfirmCode
+	// oriConfirmCode := user.ConfirmCode
 
-	user.ConfirmCode = confirmCode
+	// user.ConfirmCode = confirmCode
 	err = o.Read(&user, "email", "confirm_code")
 	if err != nil {
 		c.ErrorJson("400000", "验证码错误")
@@ -64,7 +68,22 @@ func (c *UserController) Login() {
 		return
 	}
 
-	user.ConfirmCode = oriConfirmCode
+	name := user.Name
+	if name == "" { // 如果未设置name，则随机生成name，格式为：mtv_6位随机数字
+		var tmpUser models.User
+		for true {
+			name = "mtv_" + utils.RandomNum(6)
+			tmpUser.Name = name
+			err := o.Read(&tmpUser, "name")
+			if err == orm.ErrNoRows {
+				user.Name = name
+				break
+			}
+		}
+
+	}
+
+	// user.ConfirmCode = oriConfirmCode
 	user.ConfirmCodeUpdateTime = time.Now()
 	user.Status = 1 // 已验证
 
@@ -93,27 +112,30 @@ func (c *UserController) GetImPubKeyList() {
 }
 
 type UserInfo struct {
+	Name      string `json:"name"`
+	Email     string `json:"email"`
 	SssData   string `json:"sssData"`
 	Ipns      string `json:"ipns"`
 	DbAddress string `json:"dbAddress"`
 }
 
 func (c *UserController) GetUserInfo() {
-	// email := c.GetString("email")
-	// curUser := c.CurUser()
 	var user UserInfo
 
-	key, _ := config.String("crypto")
-	deKey := crypto.DecryptBase64(key)
-	ct := crypto.DecryptAES(CurUser.SssData, deKey)
-	user.SssData = ct
-	// user.SssData = CurUser.SssData
+	if CurUser.SssData != "" {
+		key, _ := config.String("crypto")
+		deKey := crypto.DecryptBase64(key)
+		ct := crypto.DecryptAES(CurUser.SssData, deKey)
+		user.SssData = ct
+	}
 
 	walletAddress := CurUser.Address
 	ipns, _ := utils.GetDFSPath(walletAddress)
 	user.Ipns = ipns
 
 	user.DbAddress = CurUser.DbAddress
+	user.Name = CurUser.Name
+	user.Email = CurUser.Email
 	c.SuccessJson("", user)
 }
 
@@ -123,6 +145,20 @@ func (c *UserController) ModifyUser() {
 	json.Unmarshal(body, &user)
 	logs.Info("user = ", user)
 	o := orm.NewOrm()
+
+	name := strings.TrimSpace(user.Name)
+	if name != "" {
+		if name != CurUser.Name {
+			var data []models.User
+			qt := orm.NewOrm().QueryTable(user)
+			qt.Exclude("id__in", CurUser.Id).All(&data)
+			if len(data) > 0 {
+				c.ErrorJson("400000", "用户名已存在。")
+				return
+			}
+		}
+	}
+
 	sssData := user.SssData
 	if sssData != "" {
 		key, _ := config.String("crypto")

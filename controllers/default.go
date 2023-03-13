@@ -45,8 +45,8 @@ type BaseController struct {
 
 func (c *BaseController) Prepare() {
 	logs.Info("Prepare start")
-	c.setLang()           // 国际化
-	logs.Info(c.Tr("hi")) // 国际化示例
+	c.setLang() // 国际化
+	// logs.Info(c.Tr("hi")) // 国际化示例
 
 	uri := c.Ctx.Request.RequestURI
 	logs.Info(uri)
