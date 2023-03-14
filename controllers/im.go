@@ -53,7 +53,8 @@ func (c *ImController) CreateShareIm() {
 }
 
 type ImPublicKey struct {
-	PublicKey string `json:"publicKey"`
+	FromPublicKey string `json:"fromPublicKey"`
+	ToPublicKey   string `json:"toPublicKey"`
 }
 
 func (c *ImController) ExchangeImPkey() {
@@ -63,7 +64,7 @@ func (c *ImController) ExchangeImPkey() {
 
 	var chat models.Chat
 	o := orm.NewOrm()
-	chat.FromPublicKey = CurUser.NostrPublicKey
+	chat.FromPublicKey = info.FromPublicKey
 	err := o.Read(&chat, "from_public_key")
 	if err == orm.ErrNoRows {
 		logs.Error(err)
@@ -89,8 +90,8 @@ func (c *ImController) ExchangeImPkey() {
 	}
 
 	var chatNotify models.ChatNotify
-	chatNotify.FromPublicKey = CurUser.NostrPublicKey
-	chatNotify.ToPublicKey = info.PublicKey
+	chatNotify.FromPublicKey = info.FromPublicKey
+	chatNotify.ToPublicKey = info.ToPublicKey
 	err = o.Read(&chatNotify, "from_public_key", "to_public_key")
 	if err == orm.ErrNoRows {
 		chatNotify = models.ChatNotify{FromPublicKey: chatNotify.FromPublicKey, ToPublicKey: chatNotify.ToPublicKey, Status: 1}
