@@ -61,6 +61,7 @@ func (c *ImController) ExchangeImPkey() {
 	var info ImPublicKey
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &info)
+	logs.Info("info = ", info)
 
 	var chat models.Chat
 	o := orm.NewOrm()
@@ -71,12 +72,12 @@ func (c *ImController) ExchangeImPkey() {
 		c.ErrorJson("400000", "聊天室不存在")
 		return
 	}
-
+	logs.Info("111111111")
 	if chat.Status == 0 {
 		c.ErrorJson("400000", "聊天室已超时")
 		return
 	}
-
+	logs.Info("2222222")
 	curTime := time.Now()
 	if curTime.Sub(chat.UpdateTime).Minutes() > 10 {
 		chat.UpdateTime = time.Now()
@@ -84,10 +85,11 @@ func (c *ImController) ExchangeImPkey() {
 		_, err := o.Update(&chat)
 		if err != nil {
 			logs.Error(err)
+			c.ErrorJson("400000", "聊天室已超时")
+			return
 		}
-		c.ErrorJson("400000", "聊天室已超时")
-		return
 	}
+	logs.Info("333333333")
 
 	var chatNotify models.ChatNotify
 	chatNotify.FromPublicKey = info.FromPublicKey
@@ -111,6 +113,8 @@ func (c *ImController) ExchangeImPkey() {
 			return
 		}
 	}
+	logs.Info("44444444444444")
+
 	c.SuccessJson("", "")
 
 	//websock server推送给创建者
