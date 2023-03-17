@@ -19,11 +19,12 @@ type UserController struct {
 }
 
 type UserInfo struct {
-	Name      string `json:"name"`
-	Email     string `json:"email"`
-	SssData   string `json:"sssData"`
-	Ipns      string `json:"ipns"`
-	DbAddress string `json:"dbAddress"`
+	Name      string            `json:"name"`
+	Email     string            `json:"email"`
+	SssData   string            `json:"sssData"`
+	Ipns      string            `json:"ipns"`
+	DbAddress string            `json:"dbAddress"`
+	Questions []models.Question `json:"questions"`
 }
 
 func (c *UserController) VerifyMail() {
@@ -49,6 +50,12 @@ func (c *UserController) VerifyMail() {
 		ct := crypto.DecryptAES(user.SssData, deKey)
 		userInfo.SssData = ct
 	}
+
+	var data []models.Question
+	question := new(models.Question)
+	qt := orm.NewOrm().QueryTable(question)
+	qt.Filter("user_id", user.Id).All(&data, "Id", "Content")
+	userInfo.Questions = data
 
 	c.SuccessJson("", userInfo)
 }
