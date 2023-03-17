@@ -18,54 +18,112 @@ type UserController struct {
 	BaseController
 }
 
-func (c *UserController) Login() {
+type UserInfo struct {
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	SssData   string `json:"sssData"`
+	Ipns      string `json:"ipns"`
+	DbAddress string `json:"dbAddress"`
+}
+
+func (c *UserController) VerifyMail() {
 	var user models.User
-	// err := c.BindJSON(&user)
-	// if err != nil {
-	// 	c.ErrorJson("400000", "参数不能为空")
-	// 	return
-	// }
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &user)
 
 	logs.Info(user)
-	email := user.Email
-	if strings.TrimSpace(email) == "" {
-		c.ErrorJson("400000", "邮箱地址不能为空")
-		return
-	}
-	if !utils.IsEmail(email) {
-		c.ErrorJson("400000", "邮箱地址错误")
+	flag, msg := verifyEmailAndConfirmCode(user)
+	if !flag {
+		c.ErrorJson("400000", msg)
 		return
 	}
 
-	confirmCode := user.ConfirmCode
-	if strings.TrimSpace(confirmCode) == "" {
-		c.ErrorJson("400000", "验证码不能为空")
-		return
-	}
 	o := orm.NewOrm()
+	o.Read(&user, "email")
 
+	var userInfo UserInfo
+
+	if user.SssData != "" {
+		key, _ := config.String("crypto")
+		deKey := crypto.DecryptBase64(key)
+		ct := crypto.DecryptAES(user.SssData, deKey)
+		userInfo.SssData = ct
+	}
+
+	c.SuccessJson("", userInfo)
+}
+
+func (c *UserController) GetSssData() {
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+
+	verify, msg := verifyEmailAndConfirmCode(user)
+	if !verify {
+		c.ErrorJson("400000", msg)
+		return
+	}
+
+	o := orm.NewOrm()
 	err := o.Read(&user, "email")
 	if err != nil {
-		c.ErrorJson("400000", email+"不存在")
-		return
-	}
-	// oriConfirmCode := user.ConfirmCode
-
-	// user.ConfirmCode = confirmCode
-	err = o.Read(&user, "email", "confirm_code")
-	if err != nil {
-		c.ErrorJson("400000", "验证码错误")
+		c.ErrorJson("400000", "获取数据失败")
 		return
 	}
 
-	// 判断验证码是否过期
-	confirmCodeUpdateTime := user.ConfirmCodeUpdateTime
-	curTime := time.Now()
-	if curTime.Sub(confirmCodeUpdateTime).Seconds() > 60 { // 验证码1分钟失效
-		c.ErrorJson("400000", "验证码已过期")
+	c.SuccessJson("", user.SssData)
+}
+
+func (c *UserController) BindMail() {
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+
+	logs.Info(user)
+	email := strings.TrimSpace(user.Email)
+
+	var publicKey string
+	tmp := c.Ctx.Request.Header["Public_key"]
+	if tmp == nil {
+		c.ErrorJson("600000", "public_key不能为空")
 		return
+	} else {
+		publicKey = tmp[0]
+	}
+
+	verify, msg := verifyEmailAndConfirmCode(user)
+	if !verify {
+		c.ErrorJson("400000", msg)
+		return
+	}
+
+	// 验证public key是否为空
+	if publicKey == "" {
+		c.ErrorJson("400000", "Public Key不能为空")
+		return
+	}
+
+	o := orm.NewOrm()
+
+	// email是否已与其他public key绑定
+	user.Email = email
+	err := o.Read(&user, "email")
+	if err != orm.ErrNoRows {
+		if user.PublicKey == publicKey {
+			c.SuccessJson("", "")
+			return
+		}
+	}
+
+	// public key是否已与email绑定
+	user.PublicKey = publicKey
+	err = o.Read(&user, "public_key")
+	if err != orm.ErrNoRows {
+		if email != user.Email {
+			logs.Info("public key 已存在")
+			c.ErrorJson("400000", "邮箱已绑定")
+			return
+		}
 	}
 
 	name := user.Name
@@ -83,17 +141,10 @@ func (c *UserController) Login() {
 
 	}
 
-	// user.ConfirmCode = oriConfirmCode
-	user.ConfirmCodeUpdateTime = time.Now()
 	user.Status = 1 // 已验证
-
-	token := createToken(user.Email)
-	user.Token = token
-	user.TokenUpdateTime = time.Now()
-
 	o.Update(&user)
 
-	c.SuccessJson("", token)
+	c.SuccessJson("", "")
 }
 
 func (c *UserController) GetImPubKeyList() {
@@ -111,14 +162,6 @@ func (c *UserController) GetImPubKeyList() {
 	c.SuccessJson("", data)
 }
 
-type UserInfo struct {
-	Name      string `json:"name"`
-	Email     string `json:"email"`
-	SssData   string `json:"sssData"`
-	Ipns      string `json:"ipns"`
-	DbAddress string `json:"dbAddress"`
-}
-
 func (c *UserController) GetUserInfo() {
 	var user UserInfo
 
@@ -129,9 +172,10 @@ func (c *UserController) GetUserInfo() {
 		user.SssData = ct
 	}
 
-	walletAddress := CurUser.Address
-	ipns, _ := utils.GetDFSPath(walletAddress)
-	user.Ipns = ipns
+	// walletAddress := CurUser.Address
+	// ipns, _ := utils.GetDFSPath(walletAddress)
+	// user.Ipns = ipns
+	user.Ipns = CurUser.Ipns
 
 	user.DbAddress = CurUser.DbAddress
 	user.Name = CurUser.Name
@@ -164,12 +208,8 @@ func (c *UserController) ModifyUser() {
 	sssData := user.SssData
 	if sssData != "" {
 		key, _ := config.String("crypto")
-		logs.Info("key = ", key)
 		deKey := crypto.DecryptBase64(key)
-		logs.Info("deKey = ", deKey)
-		logs.Info("sssData = ", sssData)
 		enData := crypto.EncryptAES(sssData, deKey)
-		logs.Info("enData = ", enData)
 		CurUser.SssData = enData
 		// CurUser.SssData = sssData
 	}
@@ -197,22 +237,21 @@ func (c *UserController) ModifyUser() {
 
 	ipns := user.Ipns
 	if ipns != "" {
-		logs.Info("ipns = ", ipns)
 		if ipns != CurUser.Ipns {
-			CurUser.Ipns = ipns
 			if walletAddress == "" {
 				walletAddress = CurUser.Address
 			}
-			logs.Info("wallet address = ", walletAddress)
+
 			success, err := utils.SetDFSPath(walletAddress, ipns, user.Sign) // 更新钱包中用户的dfs地址
 			if !success {
 				logs.Error(err)
 				c.ErrorJson("400000", err.Error())
 				return
 			}
-		}
-	}
 
+		}
+		CurUser.Ipns = ipns
+	}
 	dbAddress := user.DbAddress
 	if dbAddress != "" {
 		CurUser.DbAddress = dbAddress
@@ -251,7 +290,7 @@ func (c *UserController) SendMail() {
 	}
 
 	// confirmCode := utils.RandomNum(6)
-	confirmCode := "123456"
+	confirmCode := "123456" // TODO:for test
 
 	if status == -1 { // email不存在
 		user = models.User{Email: email, ConfirmCode: confirmCode, Status: 0, ConfirmCodeUpdateTime: time.Now()}
@@ -312,4 +351,75 @@ func checkUserStatus(email string) (status int) {
 		status = user.Status
 	}
 	return status
+}
+
+func verifyEmailAndConfirmCode(user models.User) (bool, string) {
+	var msg string
+	flag := true
+
+	email := strings.TrimSpace(user.Email)
+	confirmCode := strings.TrimSpace(user.ConfirmCode)
+
+	verify, msg := verifyEmail(email)
+	if !verify {
+		return flag, msg
+	}
+
+	verify, msg = verifyConfirmCode(confirmCode)
+	if !verify {
+		return flag, msg
+	}
+
+	// 判断mail是否存在
+	o := orm.NewOrm()
+	err := o.Read(&user, "email")
+	if err != nil {
+		msg = email + "不存在"
+		flag = false
+		return flag, msg
+	}
+
+	// 判断mail + confirm code是否匹配
+	user.ConfirmCode = confirmCode
+	err = o.Read(&user, "email", "confirm_code")
+	if err != nil {
+		msg = "验证码错误"
+		flag = false
+		return flag, msg
+	}
+
+	// 判断验证码是否过期
+	confirmCodeUpdateTime := user.ConfirmCodeUpdateTime
+	curTime := time.Now()
+	if curTime.Sub(confirmCodeUpdateTime).Seconds() > 60 { // 验证码1分钟失效
+		msg = "验证码已过期"
+		flag = false
+		return flag, msg
+	}
+
+	return flag, msg
+}
+
+func verifyEmail(email string) (bool, string) {
+	var msg string
+	flag := true
+
+	if email == "" {
+		msg = "邮箱地址不能为空"
+		flag = false
+	} else if !utils.IsEmail(email) {
+		msg = "邮箱地址格式错误"
+		flag = false
+	}
+	return flag, msg
+}
+
+func verifyConfirmCode(confirmCode string) (bool, string) {
+	var msg string
+	flag := true
+	if confirmCode == "" {
+		msg = "验证码不能为空"
+		flag = false
+	}
+	return flag, msg
 }

@@ -6,7 +6,10 @@ import (
 	"github.com/beego/beego/v2/core/logs"
 	beego "github.com/beego/beego/v2/server/web"
 	"github.com/beego/i18n"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/form3tech-oss/jwt-go"
+	solsha3 "github.com/miguelmota/go-solidity-sha3"
 
 	"strings"
 	"time"
@@ -51,49 +54,134 @@ func (c *BaseController) Prepare() {
 	uri := c.Ctx.Request.RequestURI
 	logs.Info(uri)
 	uris := []string{
-		"/v0/user/login",
+		"/v0/user/getsssdata",
 		"/v0/user/sendmail",
+		"/v0/user/verifymail",
 		"/v0/storage/test",
 		"/v0/im/relays",
 		"/v0/im/exchangeimpkey",
 	}
 	if !isContain(uris, uri) {
-		tmp := c.Ctx.Request.Header["Authorization"] // 格式：Bearer xxx
+		var publicKey string
+		tmp := c.Ctx.Request.Header["Public_key"]
 		if tmp == nil {
-			logs.Info("00000")
-			c.ErrorJson("600000", "用户未登录")
+			c.ErrorJson("600000", "public_key不能为空")
 			return
 		} else {
-			if len(strings.Split(tmp[0], " ")) != 2 {
-				logs.Info("22222")
-				c.ErrorJson("600000", "用户未登录")
-				return
-			}
-			token := strings.Split(tmp[0], " ")[1]
-			o := orm.NewOrm()
-			var user models.User
-			user.Token = token
-			err := o.Read(&user, "token")
-			if err != nil {
-				logs.Info("11111")
-				c.ErrorJson("600000", "用户未登录")
-				return
-			} else {
-				tokenUpdateTime := user.TokenUpdateTime
-				curTime := time.Now()
-				if curTime.Sub(tokenUpdateTime).Hours() > 168 { // token失效时间：7*24h
-					c.ErrorJson("600000", "登录已过期")
-					return
-				} else {
-					user.TokenUpdateTime = time.Now()
-					o.Update(&user)
-					CurUser = user
-				}
-			}
+			publicKey = tmp[0]
 		}
+		logs.Info("public key = ", publicKey)
+
+		var signature string
+		tmp = c.Ctx.Request.Header["Sign"]
+		if tmp == nil {
+			c.ErrorJson("600000", "sign不能为空")
+			return
+		} else {
+			signature = tmp[0]
+		}
+		logs.Info("sign = ", signature)
+
+		var address string
+		tmp = c.Ctx.Request.Header["Address"]
+		if tmp == nil {
+			c.ErrorJson("600000", "Address不能为空")
+			return
+		} else {
+			address = tmp[0]
+		}
+		logs.Info("address = ", address)
+
+		var data string
+		method := c.Ctx.Request.Method
+		logs.Info("method = ", method)
+		switch method {
+		case "GET":
+			data = strings.Replace(uri, "/v0", "", 1)
+			break
+		case "POST":
+			data = string(c.Ctx.Input.RequestBody)
+		}
+		logs.Info("data = ", data)
+
+		match := sign(address, data, signature, publicKey)
+		if !match {
+			logs.Info("22222")
+			c.ErrorJson("600000", "验签失败")
+			return
+		}
+
+		o := orm.NewOrm()
+		var user models.User
+		user.PublicKey = publicKey
+		err := o.Read(&user, "public_key")
+		if err == nil { // 绑定邮箱时，user表中没有对应数据
+			CurUser = user
+		}
+
+		// tmp := c.Ctx.Request.Header["Authorization"] // 格式：Bearer xxx
+		// if tmp == nil {
+		// 	logs.Info("00000")
+		// 	c.ErrorJson("600000", "用户获取签名")
+		// 	return
+		// } else {
+		// 	if len(strings.Split(tmp[0], " ")) != 2 {
+		// 		logs.Info("22222")
+		// 		c.ErrorJson("600000", "用户获取签名")
+		// 		return
+		// 	}
+		// 	token := strings.Split(tmp[0], " ")[1]
+		// 	o := orm.NewOrm()
+		// 	var user models.User
+		// 	user.Token = token
+		// 	err := o.Read(&user, "token")
+		// 	if err != nil {
+		// 		logs.Info("11111")
+		// 		c.ErrorJson("600000", "用户获取签名")
+		// 		return
+		// 	} else {
+		// 		tokenUpdateTime := user.TokenUpdateTime
+		// 		curTime := time.Now()
+		// 		if curTime.Sub(tokenUpdateTime).Hours() > 168 { // token失效时间：7*24h
+		// 			c.ErrorJson("600000", "签名已过期")
+		// 			return
+		// 		} else {
+		// 			user.TokenUpdateTime = time.Now()
+		// 			o.Update(&user)
+		// 			CurUser = user
+		// 		}
+		// 	}
+		// }
 	}
 
 	logs.Info("Prepare end")
+}
+
+func sign(address string, data string, signature string, publicKeyStr string) bool {
+	hashData := solsha3.SoliditySHA3(
+		[]string{"address", "string"},
+		[]interface{}{
+			address,
+			data,
+		},
+	)
+	logs.Info("sign hashData:", hexutil.Encode(hashData))
+
+	publicKeyByte, err := hexutil.Decode(publicKeyStr)
+	if err != nil {
+		logs.Info(err)
+		return false
+	}
+
+	signatureByte, _ := hexutil.Decode(signature)
+	if signatureByte[64] != 0 && signatureByte[64] != 1 {
+		signatureByte[64] -= 27
+	}
+
+	signatureNoRecoverID := signatureByte[:len(signatureByte)-1]
+	result := crypto.VerifySignature(publicKeyByte, hashData, signatureNoRecoverID)
+
+	return result
 }
 
 func (c *BaseController) setLang() {

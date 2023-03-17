@@ -17,8 +17,6 @@ type User struct {
 	Sign                  string    `orm:"size(255); null"`
 	Ipns                  string    `orm:"size(255); null"`
 	DbAddress             string    `orm:"size(255); null"`
-	Token                 string    `orm:"size(255); null"`
-	TokenUpdateTime       time.Time `orm:"type(datetime); null"`
 	ConfirmCode           string    `orm:"size(16); null"`
 	ConfirmCodeUpdateTime time.Time `orm:"type(datetime); null"`
 	CreateTime            time.Time `orm:"type(datetime); auto_now_add; null"`

@@ -150,7 +150,9 @@ func (this *EvmUserStorage) SetUser(userAddress string, ipfsDir string, sign str
 
 		transactionReceipt, err = evmCommon.GlobalEvmParameter.EthClient.TransactionReceipt(context.Background(), tx.Hash())
 		if err == nil {
+			// transactionReceipt.TxHash.Hex()
 			if transactionReceipt.Status == 1 {
+				fmt.Println("@@@@@@@@@@@@@@@@@@@@@@@@transactionReceipt.Status(" + strconv.FormatUint(transactionReceipt.Status, 10) + ")")
 				break
 			} else {
 				err = fmt.Errorf("transactionReceipt.Status(" + strconv.FormatUint(transactionReceipt.Status, 10) + ")!= 1")
