@@ -101,6 +101,10 @@ func (c *BaseController) Prepare() {
 			break
 		case "POST":
 			data = string(c.Ctx.Input.RequestBody)
+			if data == "" {
+				data = strings.Replace(uri, "/v0", "", 1)
+			}
+			break
 		}
 		logs.Info("data = ", data)
 
