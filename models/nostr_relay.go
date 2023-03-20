@@ -7,7 +7,7 @@ import (
 // 定义表结构
 type NostrRelay struct {
 	Id         int       `orm:"auto; pk"`
-	WsServer   string    `orm:"size(1024); unique;" json:"wsServer"`
+	WsServer   string    `orm:"size(128);" json:"wsServer"`
 	CreateTime time.Time `orm:"type(datetime); auto_now_add; null"`
 	UpdateTime time.Time `orm:"type(datetime); auto_now; null"`
 	Remark     string    `orm:"size(512);" json:"remark"`

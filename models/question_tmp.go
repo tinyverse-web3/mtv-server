@@ -5,7 +5,7 @@ import "time"
 // table：问题模版
 type QuestionTmp struct {
 	Id         int       `orm:"auto; pk"`
-	Content    string    `orm:"size(255); unique;" json:"content"` //问题内容
+	Content    string    `orm:"size(255);" json:"content"` //问题内容
 	CreateTime time.Time `orm:"type(datetime); auto_now_add; null"`
 	UpdateTime time.Time `orm:"type(datetime); auto_now; null"`
 }
