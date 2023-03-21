@@ -7,9 +7,9 @@ import (
 // 定义表结构
 type User struct {
 	Id                    int       `orm:"auto; pk"`
-	Name                  string    `orm:"size(32); unique;" json:"name"`
-	Email                 string    `orm:"size(255); unique;" json:"email"`
-	Mobile                string    `orm:"size(255); unique;" json:"mobile"`
+	Name                  string    `orm:"size(32);" json:"name"`
+	Email                 string    `orm:"size(255);" json:"email"`
+	Mobile                string    `orm:"size(255);" json:"mobile"`
 	NostrPublicKey        string    `orm:"size(128); null" json:"nostrPublicKey"`
 	PublicKey             string    `orm:"size(128); null"`
 	SssData               string    `orm:"size(512); null"`
