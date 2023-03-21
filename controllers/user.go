@@ -126,7 +126,7 @@ func (c *UserController) BindMail() {
 	}
 
 	if user.PublicKey != "" && publicKey != user.PublicKey {
-		c.ErrorJson("400000", "绑定失败：邮箱错误")
+		c.ErrorJson("400000", "绑定失败：邮箱已绑定")
 		return
 	}
 
@@ -136,7 +136,7 @@ func (c *UserController) BindMail() {
 	if err == nil {
 		if email != user.Email {
 			logs.Info("public key 已存在")
-			c.ErrorJson("400000", "绑定失败：邮箱错误")
+			c.ErrorJson("400000", "绑定失败：邮箱已绑定")
 			return
 		}
 	}
