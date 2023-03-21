@@ -40,6 +40,8 @@ func (c *UserController) VerifyMail() {
 	}
 
 	o := orm.NewOrm()
+	hashEmail := crypto.Md5(user.Email)
+	user.Email = hashEmail
 	o.Read(&user, "email")
 
 	var userInfo UserInfo
@@ -72,6 +74,8 @@ func (c *UserController) GetSssData() {
 	}
 
 	o := orm.NewOrm()
+	hashEmail := crypto.Md5(user.Email)
+	user.Email = hashEmail
 	err := o.Read(&user, "email")
 	if err != nil {
 		c.ErrorJson("400000", "获取数据失败")
@@ -111,9 +115,9 @@ func (c *UserController) BindMail() {
 	}
 
 	o := orm.NewOrm()
-
+	hashEmail := crypto.Md5(email)
 	// email是否已与其他public key绑定
-	user.Email = email
+	user.Email = hashEmail
 	err := o.Read(&user, "email")
 	if err != orm.ErrNoRows {
 		if user.PublicKey == publicKey {
@@ -162,10 +166,12 @@ func (c *UserController) GetImPubKeyList() {
 
 	email := c.GetString("email")
 	if email != "" {
-		qt = qt.Filter("email", email)
+		hashEmail := crypto.Md5(email)
+		qt = qt.Filter("email", hashEmail)
 	}
 
-	qt.Exclude("email__in", CurUser.Email).All(&data, "Email", "NostrPublicKey")
+	hashEmailForCurUser := crypto.Md5(CurUser.Email)
+	qt.Exclude("email__in", hashEmailForCurUser).All(&data, "Email", "NostrPublicKey")
 	c.SuccessJson("", data)
 }
 
@@ -186,7 +192,7 @@ func (c *UserController) GetUserInfo() {
 
 	user.DbAddress = CurUser.DbAddress
 	user.Name = CurUser.Name
-	user.Email = CurUser.Email
+	user.Email = CurUser.Email // hash值
 	c.SuccessJson("", user)
 }
 
@@ -279,17 +285,16 @@ func (c *UserController) SendMail() {
 	json.Unmarshal(body, &user)
 
 	email := user.Email
-	if strings.TrimSpace(email) == "" {
-		c.ErrorJson("400000", "邮箱地址不能为空")
-		return
-	}
-	if !utils.IsEmail(email) {
-		c.ErrorJson("400000", "邮箱地址错误")
+
+	verify, msg := verifyEmail(email) // email不需转为hash
+	if !verify {
+		c.ErrorJson("400000", msg)
 		return
 	}
 
+	hashEmail := crypto.Md5(email)
 	o := orm.NewOrm()
-	tmpUser := models.User{Email: email}
+	tmpUser := models.User{Email: hashEmail}
 	status := -1
 	err := o.Read(&tmpUser, "email")
 	if err != orm.ErrNoRows {
@@ -300,7 +305,7 @@ func (c *UserController) SendMail() {
 	confirmCode := "123456" // TODO:for test
 
 	if status == -1 { // email不存在
-		user = models.User{Email: email, ConfirmCode: confirmCode, Status: 0, ConfirmCodeUpdateTime: time.Now()}
+		user = models.User{Email: hashEmail, ConfirmCode: confirmCode, Status: 0, ConfirmCodeUpdateTime: time.Now()}
 		_, err := o.Insert(&user)
 		if err != nil {
 			logs.Error(err)
@@ -330,7 +335,7 @@ func (c *UserController) SendMail() {
 	success := utils.Send(email, subject, fmt.Sprintf(message, strings.Split(email, "@")[0], confirmCode))
 
 	if success {
-		user = models.User{Email: email}
+		user = models.User{Email: hashEmail}
 		if o.Read(&user, "email") == nil {
 			user.ConfirmCode = confirmCode
 			user.ConfirmCodeUpdateTime = time.Now()
@@ -348,8 +353,9 @@ func (c *UserController) SendMail() {
 }
 
 func checkUserStatus(email string) (status int) {
+	hashEmail := crypto.Md5(email)
 	o := orm.NewOrm()
-	user := models.User{Email: email}
+	user := models.User{Email: hashEmail}
 
 	err := o.Read(&user, "email")
 	if err == orm.ErrNoRows {
@@ -367,7 +373,7 @@ func verifyEmailAndConfirmCode(user models.User) (bool, string) {
 	email := strings.TrimSpace(user.Email)
 	confirmCode := strings.TrimSpace(user.ConfirmCode)
 
-	verify, msg := verifyEmail(email)
+	verify, msg := verifyEmail(email) // email不需转为hash
 	if !verify {
 		return flag, msg
 	}
@@ -377,8 +383,11 @@ func verifyEmailAndConfirmCode(user models.User) (bool, string) {
 		return flag, msg
 	}
 
+	hashEmail := crypto.Md5(email)
+
 	// 判断mail是否存在
 	o := orm.NewOrm()
+	user.Email = hashEmail
 	err := o.Read(&user, "email")
 	if err != nil {
 		msg = email + "不存在"
