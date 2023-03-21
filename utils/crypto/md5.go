@@ -6,7 +6,7 @@ import (
 )
 
 func Md5(str string) string {
-	data := []byte("testing")
+	data := []byte(str)
 	b := md5.Sum(data)
 	pass := fmt.Sprintf("%x", b)
 	return pass

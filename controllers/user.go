@@ -116,23 +116,27 @@ func (c *UserController) BindMail() {
 
 	o := orm.NewOrm()
 	hashEmail := crypto.Md5(email)
-	// email是否已与其他public key绑定
+	// email存在，判断public key与数据库中的数据是否一致
 	user.Email = hashEmail
-	err := o.Read(&user, "email")
-	if err != orm.ErrNoRows {
-		if user.PublicKey == publicKey {
-			c.SuccessJson("", "")
-			return
-		}
+	o.Read(&user, "email") // verifyEmailAndConfirmCode方法已经验证邮箱是否存在，所以此处不需再做异常处理
+
+	if user.PublicKey == publicKey {
+		c.SuccessJson("", "")
+		return
 	}
 
-	// public key是否已与email绑定
+	if user.PublicKey != "" && publicKey != user.PublicKey {
+		c.ErrorJson("400000", "绑定失败：邮箱错误")
+		return
+	}
+
+	// public key存在，判断email与数据库中的数据是否一致
 	user.PublicKey = publicKey
-	err = o.Read(&user, "public_key")
-	if err != orm.ErrNoRows {
+	err := o.Read(&user, "public_key")
+	if err == nil {
 		if email != user.Email {
 			logs.Info("public key 已存在")
-			c.ErrorJson("400000", "邮箱已绑定")
+			c.ErrorJson("400000", "绑定失败：邮箱错误")
 			return
 		}
 	}
