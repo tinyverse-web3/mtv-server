@@ -14,6 +14,7 @@ type QuestionController struct {
 }
 
 func (c *QuestionController) TmpList() {
+	CurUser := c.CurUser()
 	var data []models.QuestionTmp
 	var tmp []models.QuestionTmp
 	question := new(models.QuestionTmp)
@@ -34,6 +35,7 @@ func (c *QuestionController) TmpList() {
 }
 
 func (c *QuestionController) List() {
+	CurUser := c.CurUser()
 	var data []models.Question
 	question := new(models.Question)
 	qt := orm.NewOrm().QueryTable(question)
@@ -42,6 +44,7 @@ func (c *QuestionController) List() {
 }
 
 func (c *QuestionController) Add() {
+	CurUser := c.CurUser()
 	question := new(models.Question)
 	question.UserId = CurUser.Id
 	o := orm.NewOrm()

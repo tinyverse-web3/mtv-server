@@ -163,6 +163,7 @@ func (c *UserController) BindMail() {
 }
 
 func (c *UserController) GetImPubKeyList() {
+	CurUser := c.CurUser()
 	var data []models.User
 
 	user := new(models.User)
@@ -181,6 +182,7 @@ func (c *UserController) GetImPubKeyList() {
 
 func (c *UserController) GetUserInfo() {
 	var user UserInfo
+	CurUser := c.CurUser()
 
 	if CurUser.SssData != "" {
 		key, _ := config.String("crypto")
@@ -201,6 +203,7 @@ func (c *UserController) GetUserInfo() {
 }
 
 func (c *UserController) ModifyUser() {
+	CurUser := c.CurUser()
 	var user models.User
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &user)

@@ -120,6 +120,7 @@ func (c *ImController) ExchangeImPkey() {
 }
 
 func (c *ImController) Notify() {
+	CurUser := c.CurUser()
 	fromPublicKey := CurUser.NostrPublicKey
 	if fromPublicKey == "" {
 		c.ErrorJson("400000", "Public Key不能为空")

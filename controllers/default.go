@@ -24,7 +24,8 @@ type RespJson struct {
 }
 
 var langTypes []string
-var CurUser models.User
+
+// var CurUser models.User
 
 func init() {
 	// Initialize language type list.
@@ -114,48 +115,6 @@ func (c *BaseController) Prepare() {
 			c.ErrorJson("600000", "验签失败")
 			return
 		}
-
-		o := orm.NewOrm()
-		var user models.User
-		user.PublicKey = publicKey
-		err := o.Read(&user, "public_key")
-		if err == nil { // 绑定邮箱时，user表中没有对应数据
-			CurUser = user
-		}
-
-		// tmp := c.Ctx.Request.Header["Authorization"] // 格式：Bearer xxx
-		// if tmp == nil {
-		// 	logs.Info("00000")
-		// 	c.ErrorJson("600000", "用户获取签名")
-		// 	return
-		// } else {
-		// 	if len(strings.Split(tmp[0], " ")) != 2 {
-		// 		logs.Info("22222")
-		// 		c.ErrorJson("600000", "用户获取签名")
-		// 		return
-		// 	}
-		// 	token := strings.Split(tmp[0], " ")[1]
-		// 	o := orm.NewOrm()
-		// 	var user models.User
-		// 	user.Token = token
-		// 	err := o.Read(&user, "token")
-		// 	if err != nil {
-		// 		logs.Info("11111")
-		// 		c.ErrorJson("600000", "用户获取签名")
-		// 		return
-		// 	} else {
-		// 		tokenUpdateTime := user.TokenUpdateTime
-		// 		curTime := time.Now()
-		// 		if curTime.Sub(tokenUpdateTime).Hours() > 168 { // token失效时间：7*24h
-		// 			c.ErrorJson("600000", "签名已过期")
-		// 			return
-		// 		} else {
-		// 			user.TokenUpdateTime = time.Now()
-		// 			o.Update(&user)
-		// 			CurUser = user
-		// 		}
-		// 	}
-		// }
 	}
 
 	logs.Info("Prepare end")
@@ -206,16 +165,18 @@ func (c *BaseController) setLang() {
 	c.Data["Lang"] = c.Lang
 }
 
-// func (c *BaseController) CurUser() models.User {
-// 	tmp := c.Ctx.Request.Header["Authorization"]
-// 	token := strings.Split(tmp[0], " ")[1]
-// 	o := orm.NewOrm()
+func (c *BaseController) CurUser() models.User {
+	var publicKey string
+	tmp := c.Ctx.Request.Header["Public_key"]
+	publicKey = tmp[0]
 
-// 	var user models.User
-// 	user.Token = token
-// 	o.Read(&user, "token")
-// 	return user
-// }
+	o := orm.NewOrm()
+
+	var user models.User
+	user.PublicKey = publicKey
+	o.Read(&user, "public_key")
+	return user
+}
 
 func (c *BaseController) SuccessJson(msg string, data interface{}) {
 	if msg == "" {
