@@ -24,14 +24,13 @@ func (c *ImController) Relays() {
 
 func (c *ImController) CreateShareIm() {
 	var chat models.Chat
-
-	fromPublicKey := CurUser.NostrPublicKey
-	chat.FromPublicKey = fromPublicKey
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &chat)
 
 	o := orm.NewOrm()
 	err := o.Read(&chat, "from_public_key")
 	if err == orm.ErrNoRows {
-		chat = models.Chat{FromPublicKey: fromPublicKey, Status: 1}
+		chat = models.Chat{FromPublicKey: chat.FromPublicKey, Status: 1}
 		_, err := o.Insert(&chat)
 		if err != nil {
 			logs.Error(err)

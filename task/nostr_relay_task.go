@@ -54,11 +54,9 @@ func updateRelayStatus(o orm.Ormer, value models.NostrRelay) {
 	if err != nil {
 		value.Status = 0 // 连接失败
 		value.Remark = err.Error()
-		logs.Error("Error connecting to Websocket Server:", err)
 	} else {
 		value.Status = 1 // 连接成功
 		value.Remark = ""
-		logs.Info("Connecting to Websocket Server Success")
 		conn.Close()
 	}
 	//更新状态
