@@ -204,7 +204,7 @@ func (c *UserController) GetUserInfo() {
 
 func (c *UserController) UpdateImPkey() {
 	CurUser := c.CurUser()
-
+	logs.Info("cur user = ", CurUser)
 	var user models.User
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &user)
@@ -213,7 +213,7 @@ func (c *UserController) UpdateImPkey() {
 	o := orm.NewOrm()
 	user.Id = CurUser.Id
 
-	_, err := o.Update(&user)
+	_, err := o.Update(&user, "nostr_public_key")
 	if err != nil {
 		logs.Error(err)
 		c.ErrorJson("400000", "更新聊天公钥失败")
@@ -225,6 +225,7 @@ func (c *UserController) UpdateImPkey() {
 
 func (c *UserController) ModifyUser() {
 	CurUser := c.CurUser()
+	logs.Info("cur user = ", CurUser)
 	var user models.User
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &user)
