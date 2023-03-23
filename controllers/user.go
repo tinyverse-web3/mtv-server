@@ -201,7 +201,8 @@ func (c *UserController) GetUserInfo() {
 	user.Email = CurUser.Email // hash值
 	c.SuccessJson("", user)
 }
-func (c *UserController) UpdateNoStrKey() {
+
+func (c *UserController) UpdateImPkey() {
 	CurUser := c.CurUser()
 
 	var user models.User
