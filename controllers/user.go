@@ -201,6 +201,26 @@ func (c *UserController) GetUserInfo() {
 	user.Email = CurUser.Email // hash值
 	c.SuccessJson("", user)
 }
+func (c *UserController) UpdateNoStrKey() {
+	CurUser := c.CurUser()
+
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+	logs.Info("user = ", user)
+
+	o := orm.NewOrm()
+	user.PublicKey = CurUser.PublicKey
+
+	_, err := o.Update(&user)
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "更新聊天公钥失败")
+	} else {
+		c.SuccessJson("", "")
+	}
+
+}
 
 func (c *UserController) ModifyUser() {
 	CurUser := c.CurUser()
@@ -234,10 +254,10 @@ func (c *UserController) ModifyUser() {
 		// CurUser.SssData = sssData
 	}
 
-	nostrPublicKey := user.NostrPublicKey
-	if nostrPublicKey != "" {
-		CurUser.NostrPublicKey = nostrPublicKey
-	}
+	// nostrPublicKey := user.NostrPublicKey
+	// if nostrPublicKey != "" {
+	// 	CurUser.NostrPublicKey = nostrPublicKey
+	// }
 
 	publicKey := user.PublicKey
 	if publicKey != "" {
