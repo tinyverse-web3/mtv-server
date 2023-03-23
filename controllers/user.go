@@ -211,7 +211,7 @@ func (c *UserController) UpdateImPkey() {
 	logs.Info("user = ", user)
 
 	o := orm.NewOrm()
-	user.PublicKey = CurUser.PublicKey
+	user.Id = CurUser.Id
 
 	_, err := o.Update(&user)
 	if err != nil {
