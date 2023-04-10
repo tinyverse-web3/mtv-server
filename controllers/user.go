@@ -14,19 +14,127 @@ import (
 	"github.com/beego/beego/v2/core/logs"
 )
 
+// User API
 type UserController struct {
 	BaseController
 }
 
 type UserInfo struct {
 	Name      string            `json:"name"`
+	Password  string            `json:"password"`
 	Email     string            `json:"email"`
 	SssData   string            `json:"sssData"`
 	Ipns      string            `json:"ipns"`
 	DbAddress string            `json:"dbAddress"`
 	Questions []models.Question `json:"questions"`
+	ImgCid    string            `json:"imgCid"`
+	SafeLevel int               `json:"safeLevel"`
 }
 
+// @Title UpdateSafeLevel
+// @Description 更新用户安全等级
+// @Param safeLevel body int true "安全等级"
+// @Success 200 {object} controllers.RespJson
+// @router /updatesafelevel [post]
+func (c *UserController) UpdateSafeLevel() {
+	CurUser := c.CurUser()
+
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+
+	o := orm.NewOrm()
+	user.Id = CurUser.Id
+	_, err := o.Update(&user, "safe_level")
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "更新安全等级失败")
+	} else {
+		c.SuccessJson("", "")
+	}
+}
+
+// @Title UpdateImgCid
+// @Description 更新用户头像
+// @Param imgCid body string true "图片上传至IPFS上的CID"
+// @Success 200 {object} controllers.RespJson
+// @router /updateimgcid [post]
+func (c *UserController) UpdateImgCid() {
+	CurUser := c.CurUser()
+
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+
+	o := orm.NewOrm()
+	user.Id = CurUser.Id
+	_, err := o.Update(&user, "img_cid")
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "更新头像失败")
+	} else {
+		c.SuccessJson("", "")
+	}
+}
+
+// @Title SavePassword
+// @Description 保存用户密码
+// @Param password body string true "密码"
+// @Success 200 {object} controllers.RespJson
+// @router /savepassword [post]
+func (c *UserController) SavePassword() {
+	CurUser := c.CurUser()
+
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+
+	o := orm.NewOrm()
+	user.Id = CurUser.Id
+	_, err := o.Update(&user, "password")
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "保存用户密码失败")
+	} else {
+		c.SuccessJson("", "")
+	}
+}
+
+// @Title GetPassword
+// @Description 获取用户密码
+// @Param email body string true "Email"
+// @Param confirmCode body string true "验证码"
+// @Success 200 {object} controllers.RespJson
+// @router /getpassword [post]
+func (c *UserController) GetPassword() {
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+
+	verify, msg := verifyEmailAndConfirmCode(user)
+	if !verify {
+		c.ErrorJson("400000", msg)
+		return
+	}
+
+	o := orm.NewOrm()
+	hashEmail := crypto.Md5(user.Email)
+	user.Email = hashEmail
+	err := o.Read(&user, "email")
+	if err != nil {
+		c.ErrorJson("400000", "获取数据失败")
+		return
+	}
+
+	c.SuccessJson("", user.Password)
+}
+
+// @Title VerifyMail
+// @Description 验证邮箱
+// @Param email body string true "Email"
+// @Param confirmCode body string true "验证码"
+// @Success 200 {object} controllers.RespJson
+// @router /verifymail [post]
 func (c *UserController) VerifyMail() {
 	var user models.User
 	body := c.Ctx.Input.RequestBody
@@ -62,6 +170,12 @@ func (c *UserController) VerifyMail() {
 	c.SuccessJson("", userInfo)
 }
 
+// @Title GetSssData
+// @Description 获取用户的分片数据
+// @Param email body string true "Email"
+// @Param confirmCode body string true "验证码"
+// @Success 200 {object} controllers.RespJson
+// @router /getsssdata [post]
 func (c *UserController) GetSssData() {
 	var user models.User
 	body := c.Ctx.Input.RequestBody
@@ -85,6 +199,13 @@ func (c *UserController) GetSssData() {
 	c.SuccessJson("", user.SssData)
 }
 
+// @Title BindMail
+// @Description 绑定邮箱(如果未设置name，则随机生成name，格式为：mtv_6位随机数字)
+// @Param public_key header string true "public key"
+// @Param email body string true "Email"
+// @Param confirmCode body string true "验证码"
+// @Success 200 {object} controllers.RespJson
+// @router /bindmail [post]
 func (c *UserController) BindMail() {
 	var user models.User
 	body := c.Ctx.Input.RequestBody
@@ -162,6 +283,11 @@ func (c *UserController) BindMail() {
 	c.SuccessJson("", "")
 }
 
+// @Title GetImPubKeyList
+// @Description 获取IM公钥列表(除当前用户)
+// @Param email query string false "Email"
+// @Success 200 {object} controllers.RespJson
+// @router /getimpubkeylist [get]
 func (c *UserController) GetImPubKeyList() {
 	CurUser := c.CurUser()
 	var data []models.User
@@ -180,6 +306,10 @@ func (c *UserController) GetImPubKeyList() {
 	c.SuccessJson("", data)
 }
 
+// @Title GetUserInfo
+// @Description 获取当前用户信息
+// @Success 200 {object} controllers.RespJson
+// @router /getuserinfo [get]
 func (c *UserController) GetUserInfo() {
 	var user UserInfo
 	CurUser := c.CurUser()
@@ -199,9 +329,16 @@ func (c *UserController) GetUserInfo() {
 	user.DbAddress = CurUser.DbAddress
 	user.Name = CurUser.Name
 	user.Email = CurUser.Email // hash值
+	user.SafeLevel = CurUser.SafeLevel
+	user.ImgCid = CurUser.ImgCid
 	c.SuccessJson("", user)
 }
 
+// @Title UpdateImPkey
+// @Description 更新当前用户IM公钥
+// @Param nostrPublicKey body string true "Email"
+// @Success 200 {object} controllers.RespJson
+// @router /updateimpkey [post]
 func (c *UserController) UpdateImPkey() {
 	CurUser := c.CurUser()
 	logs.Info("cur user = ", CurUser)
@@ -223,6 +360,17 @@ func (c *UserController) UpdateImPkey() {
 
 }
 
+// @Title ModifyUser
+// @Description 更新当前用户信息
+// @Param name body string false "用户名称"
+// @Param sssData body string false "分片数据"
+// @Param publicKey body string false "公钥"
+// @Param address body string false "钱包地址"
+// @Param sign body string false "签名"
+// @Param ipns body string false "IPNS"
+// @Param dbAddress body string false "数据库地址"
+// @Success 200 {object} controllers.RespJson
+// @router /modifyuser [post]
 func (c *UserController) ModifyUser() {
 	CurUser := c.CurUser()
 	logs.Info("cur user = ", CurUser)
@@ -308,6 +456,11 @@ func (c *UserController) ModifyUser() {
 	}
 }
 
+// @Title SendMail
+// @Description 发送验证码
+// @Param email body string true "Email"
+// @Success 200 {object} controllers.RespJson
+// @router /sendmail [post]
 func (c *UserController) SendMail() {
 	var user models.User
 	body := c.Ctx.Input.RequestBody

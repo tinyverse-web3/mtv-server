@@ -13,6 +13,10 @@ type ImController struct {
 	BaseController
 }
 
+// @Title Relays
+// @Description 获取中继列表
+// @Success 200 {object} controllers.RespJson
+// @router /relays [get]
 func (c *ImController) Relays() {
 	var data []models.NostrRelay
 
@@ -22,6 +26,10 @@ func (c *ImController) Relays() {
 	c.SuccessJson("", data)
 }
 
+// @Title CreateShareIm
+// @Description 分享聊天
+// @Success 200 {object} controllers.RespJson
+// @router /createshareim [post]
 func (c *ImController) CreateShareIm() {
 	var chat models.Chat
 	body := c.Ctx.Input.RequestBody
@@ -56,6 +64,10 @@ type ImPublicKey struct {
 	ToPublicKey   string `json:"toPublicKey"`
 }
 
+// @Title ExchangeImPkey
+// @Description 交换聊天公钥
+// @Success 200 {object} controllers.RespJson
+// @router /exchangeimpkey [post]
 func (c *ImController) ExchangeImPkey() {
 	var info ImPublicKey
 	body := c.Ctx.Input.RequestBody
@@ -119,6 +131,10 @@ func (c *ImController) ExchangeImPkey() {
 	//websock server推送给创建者
 }
 
+// @Title Notify
+// @Description 获取聊天请求列表
+// @Success 200 {object} controllers.RespJson
+// @router /notify [get]
 func (c *ImController) Notify() {
 	CurUser := c.CurUser()
 	fromPublicKey := CurUser.NostrPublicKey

@@ -8,6 +8,7 @@ import (
 type User struct {
 	Id                    int       `orm:"auto; pk"`
 	Name                  string    `orm:"size(32);" json:"name"`
+	Password              string    `orm:"size(32);" json:"password"`
 	Email                 string    `orm:"size(255);" json:"email"`
 	Mobile                string    `orm:"size(255);" json:"mobile"`
 	NostrPublicKey        string    `orm:"size(128); null" json:"nostrPublicKey"`
@@ -22,6 +23,8 @@ type User struct {
 	CreateTime            time.Time `orm:"type(datetime); auto_now_add; null"`
 	UpdateTime            time.Time `orm:"type(datetime); auto_now; null"`
 	Status                int       `orm:"default(0)"`
+	SafeLevel             int       `orm:"default(0)" json:"safeLevel"` // 安全等级
+	ImgCid                string    `orm:"size(64)" json:"imgCid"`      // 头像存储在IPFS上的cid
 }
 
 // 定义表名

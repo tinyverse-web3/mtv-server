@@ -1,3 +1,8 @@
+// @APIVersion V0
+// @Title MTV API
+// @Description MTV API
+// @License Apache 2.0
+// @LicenseUrl http://www.apache.org/licenses/LICENSE-2.0.html
 package routers
 
 import (
@@ -11,12 +16,39 @@ func init() {
 	logs.Info("router start")
 
 	ns := beego.NewNamespace("/v0",
-		beego.NSAutoRouter(&controllers.ImController{}),
-		beego.NSAutoRouter(&controllers.QuestionController{}),
-		beego.NSAutoRouter(&controllers.StorageController{}),
-		beego.NSAutoRouter(&controllers.UserController{}),
+		// beego.NSAutoRouter(&controllers.AuthController{}),
+		beego.NSNamespace("/auth",
+			beego.NSInclude(
+				&controllers.AuthController{},
+			),
+		),
+		// beego.NSAutoRouter(&controllers.ImController{}),
+		beego.NSNamespace("/im",
+			beego.NSInclude(
+				&controllers.ImController{},
+			),
+		),
+		// beego.NSAutoRouter(&controllers.QuestionController{}),
+		beego.NSNamespace("/question",
+			beego.NSInclude(
+				&controllers.QuestionController{},
+			),
+		),
+		// beego.NSAutoRouter(&controllers.StorageController{}),
+		beego.NSNamespace("/storage",
+			beego.NSInclude(
+				&controllers.StorageController{},
+			),
+		),
+		// beego.NSAutoRouter(&controllers.UserController{}),
+		beego.NSNamespace("/user",
+			beego.NSInclude(
+				&controllers.UserController{},
+			),
+		),
 	)
 	beego.AddNamespace(ns)
+
 	logs.Info("router end")
 
 }

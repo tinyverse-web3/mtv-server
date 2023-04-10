@@ -54,15 +54,8 @@ func (c *BaseController) Prepare() {
 
 	uri := c.Ctx.Request.RequestURI
 	logs.Info(uri)
-	uris := []string{
-		"/v0/user/getsssdata",
-		"/v0/user/sendmail",
-		"/v0/user/verifymail",
-		"/v0/storage/test",
-		"/v0/im/relays",
-		"/v0/im/exchangeimpkey",
-	}
-	if !isContain(uris, uri) {
+
+	if !isContain(uri) {
 		var publicKey string
 		tmp := c.Ctx.Request.Header["Public_key"]
 		if tmp == nil {
@@ -111,7 +104,7 @@ func (c *BaseController) Prepare() {
 
 		match := sign(address, data, signature, publicKey)
 		if !match {
-			logs.Info("22222")
+			logs.Info("验签失败")
 			c.ErrorJson("600000", "验签失败")
 			return
 		}
@@ -199,10 +192,20 @@ func (c *BaseController) ErrorJson(code string, msg string) {
 	c.StopRun()
 }
 
-func isContain(items []string, item string) bool {
+func isContain(item string) bool {
+	uris := []string{
+		"/auth/checksign",
+		"/v0/user/getsssdata",
+		"/v0/user/sendmail",
+		"/v0/user/verifymail",
+		"/v0/storage/test",
+		"/v0/im/relays",
+		"/v0/im/exchangeimpkey",
+	}
+
 	contain := false
-	for _, eachItem := range items {
-		if strings.Index(eachItem, item) != -1 {
+	for _, eachItem := range uris {
+		if strings.Index(item, eachItem) != -1 {
 			contain = true
 			break
 		}

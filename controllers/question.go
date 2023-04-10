@@ -13,6 +13,10 @@ type QuestionController struct {
 	BaseController
 }
 
+// @Title TmpList
+// @Description 获取问题模版列表
+// @Success 200 {object} controllers.RespJson
+// @router /tmplist [get]
 func (c *QuestionController) TmpList() {
 	CurUser := c.CurUser()
 	var data []models.QuestionTmp
@@ -34,6 +38,10 @@ func (c *QuestionController) TmpList() {
 	c.SuccessJson("", data)
 }
 
+// @Title List
+// @Description 获取用户问题列表
+// @Success 200 {object} controllers.RespJson
+// @router /list [get]
 func (c *QuestionController) List() {
 	CurUser := c.CurUser()
 	var data []models.Question
@@ -43,6 +51,10 @@ func (c *QuestionController) List() {
 	c.SuccessJson("", data)
 }
 
+// @Title Add
+// @Description 设置用户问题
+// @Success 200 {object} controllers.RespJson
+// @router /add [post]
 func (c *QuestionController) Add() {
 	CurUser := c.CurUser()
 	question := new(models.Question)
