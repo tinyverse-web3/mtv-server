@@ -22,6 +22,11 @@ func init() {
 				&controllers.AuthController{},
 			),
 		),
+		beego.NSNamespace("/guardian",
+			beego.NSInclude(
+				&controllers.GuardianController{},
+			),
+		),
 		// beego.NSAutoRouter(&controllers.ImController{}),
 		beego.NSNamespace("/im",
 			beego.NSInclude(

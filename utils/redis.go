@@ -42,8 +42,12 @@ func SetStr(key, value string, timeout time.Duration) (err error) {
 
 func GetStr(key string) (value string) {
 	v, _ := redisCache.Get(context.Background(), key)
-	value = string(v.([]byte)) //这里的转换很重要，Get返回的是interface
-	return
+
+	if v != nil {
+		value = string(v.([]byte))
+	}
+
+	return value
 }
 
 func DelKey(key string) (err error) {

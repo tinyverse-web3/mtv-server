@@ -20,19 +20,21 @@ type UserController struct {
 }
 
 type UserInfo struct {
-	Name      string            `json:"name"`
-	Password  string            `json:"password"`
-	Email     string            `json:"email"`
-	SssData   string            `json:"sssData"`
-	Ipns      string            `json:"ipns"`
-	DbAddress string            `json:"dbAddress"`
-	Questions []models.Question `json:"questions"`
-	ImgCid    string            `json:"imgCid"`
-	SafeLevel int               `json:"safeLevel"`
+	Name            string            `json:"name"`
+	Password        string            `json:"password"`
+	Email           string            `json:"email"`
+	ConfirmCode     string            `json:"confirmCode"`
+	GuardianSssData string            `json:"guardianSssData"`
+	QuestionSssData string            `json:"questionSssData"`
+	Ipns            string            `json:"ipns"`
+	DbAddress       string            `json:"dbAddress"`
+	Questions       []models.Question `json:"questions"`
+	ImgCid          string            `json:"imgCid"`
+	SafeLevel       int               `json:"safeLevel"`
 }
 
 // @Title UpdateSafeLevel
-// @Description 更新用户安全等级
+// @Description 更新用户安全等级。当安全等级低于当前用户的等级，则不更新。
 // @Param safeLevel body int true "安全等级"
 // @Success 200 {object} controllers.RespJson
 // @router /updatesafelevel [post]
@@ -42,10 +44,22 @@ func (c *UserController) UpdateSafeLevel() {
 	var user models.User
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &user)
+	safeLevel := user.SafeLevel
 
 	o := orm.NewOrm()
 	user.Id = CurUser.Id
-	_, err := o.Update(&user, "safe_level")
+	err := o.Read(&user, "id")
+	if err != nil {
+		c.ErrorJson("400000", "获取数据失败")
+		return
+	}
+	if safeLevel < user.SafeLevel {
+		logs.Info("不需更新安全等级")
+		c.SuccessJson("", "")
+	}
+
+	user.SafeLevel = safeLevel
+	_, err = o.Update(&user, "safe_level")
 	if err != nil {
 		logs.Error(err)
 		c.ErrorJson("400000", "更新安全等级失败")
@@ -107,18 +121,20 @@ func (c *UserController) SavePassword() {
 // @Success 200 {object} controllers.RespJson
 // @router /getpassword [post]
 func (c *UserController) GetPassword() {
-	var user models.User
+	var tmpUser UserInfo
 	body := c.Ctx.Input.RequestBody
-	json.Unmarshal(body, &user)
+	json.Unmarshal(body, &tmpUser)
 
-	verify, msg := verifyEmailAndConfirmCode(user)
+	verify, msg := verifyEmailAndConfirmCode(tmpUser.Email, tmpUser.ConfirmCode)
 	if !verify {
 		c.ErrorJson("400000", msg)
 		return
 	}
 
 	o := orm.NewOrm()
-	hashEmail := crypto.Md5(user.Email)
+	hashEmail := crypto.Md5(tmpUser.Email)
+
+	var user models.User
 	user.Email = hashEmail
 	err := o.Read(&user, "email")
 	if err != nil {
@@ -136,29 +152,36 @@ func (c *UserController) GetPassword() {
 // @Success 200 {object} controllers.RespJson
 // @router /verifymail [post]
 func (c *UserController) VerifyMail() {
-	var user models.User
+	var tmpUser UserInfo
 	body := c.Ctx.Input.RequestBody
-	json.Unmarshal(body, &user)
+	json.Unmarshal(body, &tmpUser)
 
-	logs.Info(user)
-	flag, msg := verifyEmailAndConfirmCode(user)
+	logs.Info(tmpUser)
+	flag, msg := verifyEmailAndConfirmCode(tmpUser.Email, tmpUser.ConfirmCode)
 	if !flag {
 		c.ErrorJson("400000", msg)
 		return
 	}
 
 	o := orm.NewOrm()
-	hashEmail := crypto.Md5(user.Email)
+	hashEmail := crypto.Md5(tmpUser.Email)
+
+	var user models.User
 	user.Email = hashEmail
 	o.Read(&user, "email")
 
 	var userInfo UserInfo
-
-	if user.SssData != "" {
+	if user.QuestionSssData != "" {
 		key, _ := config.String("crypto")
 		deKey := crypto.DecryptBase64(key)
-		ct := crypto.DecryptAES(user.SssData, deKey)
-		userInfo.SssData = ct
+		ct := crypto.DecryptAES(user.QuestionSssData, deKey)
+		userInfo.QuestionSssData = ct
+	}
+	if user.GuardianSssData != "" {
+		key, _ := config.String("crypto")
+		deKey := crypto.DecryptBase64(key)
+		ct := crypto.DecryptAES(user.GuardianSssData, deKey)
+		userInfo.GuardianSssData = ct
 	}
 
 	var data []models.Question
@@ -170,117 +193,151 @@ func (c *UserController) VerifyMail() {
 	c.SuccessJson("", userInfo)
 }
 
-// @Title GetSssData
-// @Description 获取用户的分片数据
-// @Param email body string true "Email"
-// @Param confirmCode body string true "验证码"
-// @Success 200 {object} controllers.RespJson
-// @router /getsssdata [post]
-func (c *UserController) GetSssData() {
-	var user models.User
-	body := c.Ctx.Input.RequestBody
-	json.Unmarshal(body, &user)
-
-	verify, msg := verifyEmailAndConfirmCode(user)
-	if !verify {
-		c.ErrorJson("400000", msg)
-		return
-	}
-
-	o := orm.NewOrm()
-	hashEmail := crypto.Md5(user.Email)
-	user.Email = hashEmail
-	err := o.Read(&user, "email")
-	if err != nil {
-		c.ErrorJson("400000", "获取数据失败")
-		return
-	}
-
-	c.SuccessJson("", user.SssData)
+type GuardianSssInfo struct {
+	SssData   string            `json:"sssData"`
+	Guardians []models.Guardian `json:"guardians"`
 }
 
-// @Title BindMail
-// @Description 绑定邮箱(如果未设置name，则随机生成name，格式为：mtv_6位随机数字)
-// @Param public_key header string true "public key"
+// @Title GetSssData4Guardian
+// @Description 获取分片数据(守护者备份)和守护者列表
 // @Param email body string true "Email"
 // @Param confirmCode body string true "验证码"
 // @Success 200 {object} controllers.RespJson
-// @router /bindmail [post]
-func (c *UserController) BindMail() {
-	var user models.User
+// @router /getsssdata4guardian [post]
+func (c *UserController) GetSssData4Guardian() {
+	var tmpUser UserInfo
 	body := c.Ctx.Input.RequestBody
-	json.Unmarshal(body, &user)
+	json.Unmarshal(body, &tmpUser)
 
-	logs.Info(user)
-	email := strings.TrimSpace(user.Email)
-
-	var publicKey string
-	tmp := c.Ctx.Request.Header["Public_key"]
-	if tmp == nil {
-		c.ErrorJson("600000", "public_key不能为空")
-		return
-	} else {
-		publicKey = tmp[0]
-	}
-
-	verify, msg := verifyEmailAndConfirmCode(user)
+	verify, msg := verifyEmailAndConfirmCode(tmpUser.Email, tmpUser.ConfirmCode)
 	if !verify {
 		c.ErrorJson("400000", msg)
 		return
 	}
 
-	// 验证public key是否为空
-	if publicKey == "" {
-		c.ErrorJson("400000", "Public Key不能为空")
+	hashEmail := crypto.Md5(tmpUser.Email)
+	o := orm.NewOrm()
+	var guardian models.Guardian
+	guardian.Account = hashEmail
+	err := o.Read(&guardian, "account")
+	if err != nil {
+		logs.Error("守护者不存在")
+		c.ErrorJson("400000", "获取分片数据失败")
+		return
+	}
+
+	var user models.User
+	user.Id = guardian.UserId
+	err = o.Read(&user, "id")
+	if err != nil {
+		logs.Error("主账号不存在")
+		c.ErrorJson("400000", "获取分片数据失败")
+		return
+	}
+	key, _ := config.String("crypto")
+	deKey := crypto.DecryptBase64(key)
+	deData := crypto.DecryptAES(user.GuardianSssData, deKey)
+
+	var info GuardianSssInfo
+	info.SssData = deData
+
+	var data []models.Guardian
+
+	tmp := new(models.Guardian)
+	qt := orm.NewOrm().QueryTable(tmp)
+	qt.Filter("user_id", user.Id).All(&data, "type", "account", "accountMask")
+	info.Guardians = data
+
+	c.SuccessJson("", info)
+}
+
+// @Title GetSssData4Question
+// @Description 获取分片数据(智能隐私备份)
+// @Param email body string true "Email"
+// @Param confirmCode body string true "验证码"
+// @Success 200 {object} controllers.RespJson
+// @router /getsssdata4question [post]
+func (c *UserController) GetSssData4Question() {
+	var tmpUser UserInfo
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &tmpUser)
+
+	verify, msg := verifyEmailAndConfirmCode(tmpUser.Email, tmpUser.ConfirmCode)
+	if !verify {
+		c.ErrorJson("400000", msg)
 		return
 	}
 
 	o := orm.NewOrm()
-	hashEmail := crypto.Md5(email)
-	// email存在，判断public key与数据库中的数据是否一致
-	user.Email = hashEmail
-	o.Read(&user, "email") // verifyEmailAndConfirmCode方法已经验证邮箱是否存在，所以此处不需再做异常处理
+	var user models.User
+	user.Email = crypto.Md5(tmpUser.Email)
+	err := o.Read(&user, "email")
+	if err != nil {
+		c.ErrorJson("400000", "获取分片数据失败")
+		return
+	}
 
-	if user.PublicKey == publicKey {
+	key, _ := config.String("crypto")
+	deKey := crypto.DecryptBase64(key)
+	deData := crypto.DecryptAES(user.QuestionSssData, deKey)
+	c.SuccessJson("", deData)
+}
+
+// @Title SaveSssData4Guardian
+// @Description 保存分片数据(守护者备份)
+// @Param guardianSssData body string true "分片数据"
+// @Success 200 {object} controllers.RespJson
+// @router /savesssdata4guardian [post]
+func (c *UserController) SaveSssData4Guardian() {
+	CurUser := c.CurUser()
+
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+
+	o := orm.NewOrm()
+	user.Id = CurUser.Id
+
+	key, _ := config.String("crypto")
+	deKey := crypto.DecryptBase64(key)
+	enData := crypto.EncryptAES(user.GuardianSssData, deKey)
+	user.GuardianSssData = enData
+
+	_, err := o.Update(&user, "guardian_sss_data")
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "保存分片数据(守护者备份)失败")
+	} else {
 		c.SuccessJson("", "")
-		return
 	}
+}
 
-	if user.PublicKey != "" && publicKey != user.PublicKey {
-		c.ErrorJson("400000", "绑定失败：邮箱已绑定")
-		return
+// @Title SaveSssData4Question
+// @Description 保存分片数据(智能隐私备份)
+// @Param questionSssData body string true "分片数据"
+// @Success 200 {object} controllers.RespJson
+// @router /savesssdata4question [post]
+func (c *UserController) SaveSssData4Question() {
+	CurUser := c.CurUser()
+
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+
+	o := orm.NewOrm()
+	user.Id = CurUser.Id
+	key, _ := config.String("crypto")
+	deKey := crypto.DecryptBase64(key)
+	enData := crypto.EncryptAES(user.QuestionSssData, deKey)
+	user.QuestionSssData = enData
+
+	_, err := o.Update(&user, "question_sss_data")
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "保存分片数据(智能隐私备份)失败")
+	} else {
+		c.SuccessJson("", "")
 	}
-
-	// public key存在，判断email与数据库中的数据是否一致
-	user.PublicKey = publicKey
-	err := o.Read(&user, "public_key")
-	if err == nil {
-		if email != user.Email {
-			logs.Info("public key 已存在")
-			c.ErrorJson("400000", "绑定失败：邮箱已绑定")
-			return
-		}
-	}
-
-	name := user.Name
-	if name == "" { // 如果未设置name，则随机生成name，格式为：mtv_6位随机数字
-		var tmpUser models.User
-		for true {
-			name = "mtv_" + utils.RandomNum(6)
-			tmpUser.Name = name
-			err := o.Read(&tmpUser, "name")
-			if err == orm.ErrNoRows {
-				user.Name = name
-				break
-			}
-		}
-
-	}
-
-	user.Status = 1 // 已验证
-	o.Update(&user)
-
-	c.SuccessJson("", "")
 }
 
 // @Title GetImPubKeyList
@@ -314,11 +371,17 @@ func (c *UserController) GetUserInfo() {
 	var user UserInfo
 	CurUser := c.CurUser()
 
-	if CurUser.SssData != "" {
+	if user.QuestionSssData != "" {
 		key, _ := config.String("crypto")
 		deKey := crypto.DecryptBase64(key)
-		ct := crypto.DecryptAES(CurUser.SssData, deKey)
-		user.SssData = ct
+		ct := crypto.DecryptAES(user.QuestionSssData, deKey)
+		user.QuestionSssData = ct
+	}
+	if user.GuardianSssData != "" {
+		key, _ := config.String("crypto")
+		deKey := crypto.DecryptBase64(key)
+		ct := crypto.DecryptAES(user.GuardianSssData, deKey)
+		user.GuardianSssData = ct
 	}
 
 	// walletAddress := CurUser.Address
@@ -360,10 +423,53 @@ func (c *UserController) UpdateImPkey() {
 
 }
 
+// @Title UpdateName
+// @Description 更新用户名称
+// @Param name body string false "用户名称"
+// @Success 200 {object} controllers.RespJson
+// @router /updatename [post]
+func (c *UserController) UpdateName() {
+	CurUser := c.CurUser()
+	logs.Info("cur user = ", CurUser)
+	var user models.User
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &user)
+	logs.Info("user = ", user)
+	o := orm.NewOrm()
+
+	name := strings.TrimSpace(user.Name)
+	if name == "" {
+		c.ErrorJson("400000", "用户名不能为空")
+	}
+
+	if strings.Index(CurUser.Name, "mtv_") == -1 {
+		c.ErrorJson("400000", "用户名只能免费修改一次。")
+		return
+	}
+
+	if name != CurUser.Name {
+		var data []models.User
+		qt := orm.NewOrm().QueryTable(user)
+		qt.Filter("name", name).Exclude("id__in", CurUser.Id).All(&data)
+		if len(data) > 0 {
+			c.ErrorJson("400000", "用户名已存在。")
+			return
+		}
+	}
+
+	user.Id = CurUser.Id
+	user.Name = name
+	_, err := o.Update(&user, "name")
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "更新用户名称失败")
+	} else {
+		c.SuccessJson("", "")
+	}
+}
+
 // @Title ModifyUser
 // @Description 更新当前用户信息
-// @Param name body string false "用户名称"
-// @Param sssData body string false "分片数据"
 // @Param publicKey body string false "公钥"
 // @Param address body string false "钱包地址"
 // @Param sign body string false "签名"
@@ -379,35 +485,6 @@ func (c *UserController) ModifyUser() {
 	json.Unmarshal(body, &user)
 	logs.Info("user = ", user)
 	o := orm.NewOrm()
-
-	name := strings.TrimSpace(user.Name)
-	if name != "" {
-		if name != CurUser.Name {
-			var data []models.User
-			qt := orm.NewOrm().QueryTable(user)
-			qt.Filter("name", name).Exclude("id__in", CurUser.Id).All(&data)
-			if len(data) > 0 {
-				c.ErrorJson("400000", "用户名已存在。")
-				return
-			} else {
-				CurUser.Name = name
-			}
-		}
-	}
-
-	sssData := user.SssData
-	if sssData != "" {
-		key, _ := config.String("crypto")
-		deKey := crypto.DecryptBase64(key)
-		enData := crypto.EncryptAES(sssData, deKey)
-		CurUser.SssData = enData
-		// CurUser.SssData = sssData
-	}
-
-	// nostrPublicKey := user.NostrPublicKey
-	// if nostrPublicKey != "" {
-	// 	CurUser.NostrPublicKey = nostrPublicKey
-	// }
 
 	publicKey := user.PublicKey
 	if publicKey != "" {
@@ -456,19 +533,37 @@ func (c *UserController) ModifyUser() {
 	}
 }
 
-// @Title SendMail
-// @Description 发送验证码
+// @Title BindMail
+// @Description 绑定邮箱(如果未设置name，则随机生成name，格式为：mtv_6位随机数字)
+// @Param public_key header string true "public key"
 // @Param email body string true "Email"
+// @Param confirmCode body string true "验证码"
 // @Success 200 {object} controllers.RespJson
-// @router /sendmail [post]
-func (c *UserController) SendMail() {
-	var user models.User
+// @router /bindmail [post]
+func (c *UserController) BindMail() {
+	var tmpUser UserInfo
+
 	body := c.Ctx.Input.RequestBody
-	json.Unmarshal(body, &user)
+	json.Unmarshal(body, &tmpUser)
 
-	email := user.Email
+	logs.Info(tmpUser)
+	email := strings.TrimSpace(tmpUser.Email)
 
-	verify, msg := verifyEmail(email) // email不需转为hash
+	var publicKey string
+	tmp := c.Ctx.Request.Header["Public_key"]
+	if tmp == nil {
+		c.ErrorJson("600000", "public_key不能为空")
+		return
+	} else {
+		publicKey = tmp[0]
+		// 验证public key是否为空
+		if publicKey == "" {
+			c.ErrorJson("400000", "public_key不能为空不能为空")
+			return
+		}
+	}
+
+	verify, msg := verifyEmailAndConfirmCode(tmpUser.Email, tmpUser.ConfirmCode)
 	if !verify {
 		c.ErrorJson("400000", msg)
 		return
@@ -476,34 +571,162 @@ func (c *UserController) SendMail() {
 
 	hashEmail := crypto.Md5(email)
 	o := orm.NewOrm()
-	tmpUser := models.User{Email: hashEmail}
-	status := -1
-	err := o.Read(&tmpUser, "email")
-	if err != orm.ErrNoRows {
-		status = tmpUser.Status
-	}
 
-	// confirmCode := utils.RandomNum(6)
-	confirmCode := "123456" // TODO:for test
-
-	if status == -1 { // email不存在
-		user = models.User{Email: hashEmail, ConfirmCode: confirmCode, Status: 0, ConfirmCodeUpdateTime: time.Now()}
+	var user models.User
+	user.Email = hashEmail
+	err := o.Read(&user, "email")
+	if err == orm.ErrNoRows { // email不存在，则insert用户
+		name := generateUserName()
+		user = models.User{Email: hashEmail, Status: 1, PublicKey: publicKey, Name: name}
 		_, err := o.Insert(&user)
 		if err != nil {
 			logs.Error(err)
-			c.ErrorJson("400000", "Send mail faild!")
+			c.ErrorJson("400000", "Bind mail faild!")
 			return
+		} else {
+			// 生成默认守护者
+			var guardian models.Guardian
+			guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email)}
+			_, err := o.Insert(&guardian)
+			if err != nil {
+				logs.Error(err)
+				c.ErrorJson("400000", "Bind mail faild!")
+				return
+			} else {
+				c.SuccessJson("", "")
+				return
+			}
 		}
-	} else {
-		// 如果email存在，判断发送email的频率
-		confirmCodeUpdateTime := tmpUser.ConfirmCodeUpdateTime
-		curTime := time.Now()
-		if curTime.Sub(confirmCodeUpdateTime).Seconds() < 60 {
-			c.ErrorJson("400000", "验证码已发送，请查看邮箱。")
+	}
+
+	if user.PublicKey == publicKey {
+		c.SuccessJson("", "")
+		return
+	}
+
+	if user.PublicKey != "" && publicKey != user.PublicKey {
+		c.ErrorJson("400000", "绑定失败：邮箱已绑定")
+		return
+	}
+
+	// public key存在，判断email与数据库中的数据是否一致
+	user.PublicKey = publicKey
+	err = o.Read(&user, "public_key")
+	if err == nil {
+		if email != user.Email {
+			logs.Info("public key 已存在")
+			c.ErrorJson("400000", "绑定失败：邮箱已绑定")
 			return
 		}
 	}
 
+	name := user.Name
+	if name == "" { // 如果未设置name，则随机生成name，格式为：mtv_6位随机数字
+		user.Name = generateUserName()
+	}
+
+	user.Status = 1 // 已验证
+	o.Update(&user)
+
+	c.SuccessJson("", "")
+}
+
+func generateUserName() (name string) {
+	o := orm.NewOrm()
+	var tmpUser models.User
+	for true {
+		name = "mtv_" + utils.RandomNum(6)
+		tmpUser.Name = name
+		err := o.Read(&tmpUser, "name")
+		if err == orm.ErrNoRows {
+			break
+		}
+	}
+	return
+}
+
+// func (c *UserController) SendMail() {
+// 	var user models.User
+// 	body := c.Ctx.Input.RequestBody
+// 	json.Unmarshal(body, &user)
+
+// 	email := user.Email
+
+// 	verify, msg := verifyEmail(email) // email不需转为hash
+// 	if !verify {
+// 		c.ErrorJson("400000", msg)
+// 		return
+// 	}
+
+// 	hashEmail := crypto.Md5(email)
+// 	o := orm.NewOrm()
+// 	tmpUser := models.User{Email: hashEmail}
+// 	status := -1
+// 	err := o.Read(&tmpUser, "email")
+// 	if err != orm.ErrNoRows {
+// 		status = tmpUser.Status
+// 	}
+
+// 	if status == -1 { // email不存在
+// 		user = models.User{Email: hashEmail, Status: 0}
+// 		_, err := o.Insert(&user)
+// 		if err != nil {
+// 			logs.Error(err)
+// 			c.ErrorJson("400000", "Send mail faild!")
+// 			return
+// 		}
+// 	} else {
+// 		// 如果email存在，判断发送email的频率
+// 		tmpVerifyCode := utils.GetStr(email)
+// 		if tmpVerifyCode != "" {
+// 			c.ErrorJson("400000", "验证码已发送，请查看邮箱。")
+// 			return
+// 		}
+// 	}
+
+// 	success := sendMail4ConfirmCode(email)
+
+// 	if success {
+// 		user = models.User{Email: hashEmail}
+// 		c.SuccessJson("Send mail success!", "")
+// 	} else {
+// 		c.ErrorJson("400000", "Send mail faild!")
+// 	}
+// }
+
+type VerifyCodeInfo struct {
+	Email string `json:"email"`
+}
+
+// @Title SendMail4VerifyCode
+// @Description 发送验证码
+// @Param email body string true "email"
+// @Success 200 {object} controllers.RespJson
+// @router /sendmail4verifycode [post]
+func (c *UserController) SendMail4VerifyCode() {
+	var info VerifyCodeInfo
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &info)
+
+	email := info.Email
+	verify, msg := verifyEmail(email) // email不需转为hash
+	if !verify {
+		c.ErrorJson("400000", msg)
+		return
+	}
+
+	// verifyCode := utils.RandomNum(6)
+	verifyCode := "123456" // TODO:for test
+
+	// 判断发送验证码的频率
+	tmpVerifyCode := utils.GetStr(email)
+	if tmpVerifyCode != "" {
+		c.ErrorJson("400000", "验证码已发送，请查看邮箱。")
+		return
+	}
+
+	hashEmail := crypto.Md5(email)
+	utils.SetStr(hashEmail, verifyCode, 1*time.Minute)
 	subject := "发送验证码"
 	message := `
 		<p> Hi %s,</p>
@@ -514,24 +737,14 @@ func (c *UserController) SendMail() {
 		<p style="text-indent:2em"> - The MTV Team</p>
 	`
 
-	success := utils.Send(email, subject, fmt.Sprintf(message, strings.Split(email, "@")[0], confirmCode))
+	success := utils.Send(email, subject, fmt.Sprintf(message, strings.Split(email, "@")[0], verifyCode))
 
 	if success {
-		user = models.User{Email: hashEmail}
-		if o.Read(&user, "email") == nil {
-			user.ConfirmCode = confirmCode
-			user.ConfirmCodeUpdateTime = time.Now()
-			_, err := o.Update(&user)
-			if err != nil {
-				logs.Error(err)
-				c.ErrorJson("400000", "Send mail faild!")
-				return
-			}
-		}
-		c.SuccessJson("Send mail success!", "")
+		c.SuccessJson("", "")
 	} else {
-		c.ErrorJson("400000", "Send mail faild!")
+		c.ErrorJson("400000", "Send verification code faild!")
 	}
+
 }
 
 func checkUserStatus(email string) (status int) {
@@ -548,49 +761,35 @@ func checkUserStatus(email string) (status int) {
 	return status
 }
 
-func verifyEmailAndConfirmCode(user models.User) (bool, string) {
+func verifyEmailAndConfirmCode(email, verifyCode string) (bool, string) {
 	var msg string
 	flag := true
 
-	email := strings.TrimSpace(user.Email)
-	confirmCode := strings.TrimSpace(user.ConfirmCode)
+	email = strings.TrimSpace(email)
+	verifyCode = strings.TrimSpace(verifyCode)
 
 	verify, msg := verifyEmail(email) // email不需转为hash
 	if !verify {
 		return flag, msg
 	}
 
-	verify, msg = verifyConfirmCode(confirmCode)
+	verify, msg = verifyConfirmCode(verifyCode)
 	if !verify {
 		return flag, msg
 	}
 
 	hashEmail := crypto.Md5(email)
-
-	// 判断mail是否存在
-	o := orm.NewOrm()
-	user.Email = hashEmail
-	err := o.Read(&user, "email")
-	if err != nil {
-		msg = email + "不存在"
-		flag = false
-		return flag, msg
-	}
-
-	// 判断mail + confirm code是否匹配
-	user.ConfirmCode = confirmCode
-	err = o.Read(&user, "email", "confirm_code")
-	if err != nil {
-		msg = "验证码错误"
-		flag = false
-		return flag, msg
-	}
+	tmpVerifyCode := utils.GetStr(hashEmail)
 
 	// 判断验证码是否过期
-	confirmCodeUpdateTime := user.ConfirmCodeUpdateTime
-	curTime := time.Now()
-	if curTime.Sub(confirmCodeUpdateTime).Seconds() > 60 { // 验证码1分钟失效
+	if tmpVerifyCode == "" { // 验证码1分钟失效
 		msg = "验证码已过期"
+		flag = false
+		return flag, msg
+	}
+	// 判断mail + confirm code是否匹配
+	if tmpVerifyCode != verifyCode {
+		msg = "验证码错误"
 		flag = false
 		return flag, msg
 	}

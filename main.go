@@ -13,7 +13,7 @@ func main() {
 
 	//数据库初始化
 	utils.InitMySQL()
-	// utils.InitRedis()
+	utils.InitRedis()
 
 	beego.AddFuncMap("i18n", i18n.Tr)
 	task.StartTask()

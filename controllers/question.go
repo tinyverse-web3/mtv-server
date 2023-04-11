@@ -7,6 +7,7 @@ import (
 	"mtv/models"
 
 	"github.com/beego/beego/v2/client/orm"
+	"github.com/beego/beego/v2/core/logs"
 )
 
 type QuestionController struct {
@@ -14,7 +15,7 @@ type QuestionController struct {
 }
 
 // @Title TmpList
-// @Description 获取问题模版列表
+// @Description 获取问题模版列表(随机返回3个问题模版)
 // @Success 200 {object} controllers.RespJson
 // @router /tmplist [get]
 func (c *QuestionController) TmpList() {
@@ -23,7 +24,7 @@ func (c *QuestionController) TmpList() {
 	var tmp []models.QuestionTmp
 	question := new(models.QuestionTmp)
 	qt := orm.NewOrm().QueryTable(question)
-	qt.OrderBy("id").All(&tmp, "Id", "Content")
+	qt.OrderBy("id").All(&tmp, "content")
 
 	h := fnv.New64a()
 	h.Write([]byte(CurUser.Email))
@@ -32,6 +33,7 @@ func (c *QuestionController) TmpList() {
 
 	for i := 0; i <= 2; i++ {
 		index := rand.Intn(len(tmp))
+		logs.Info("index = ", index)
 		item := tmp[index]
 		data = append(data, item)
 	}
@@ -47,7 +49,7 @@ func (c *QuestionController) List() {
 	var data []models.Question
 	question := new(models.Question)
 	qt := orm.NewOrm().QueryTable(question)
-	qt.Filter("user_id", CurUser.Id).All(&data, "Id", "Content")
+	qt.Filter("user_id", CurUser.Id).All(&data, "content")
 	c.SuccessJson("", data)
 }
 
