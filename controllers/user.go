@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"mtv/models"
 	"mtv/utils"
 	"mtv/utils/crypto"
@@ -63,29 +64,6 @@ func (c *UserController) UpdateSafeLevel() {
 	if err != nil {
 		logs.Error(err)
 		c.ErrorJson("400000", "更新安全等级失败")
-	} else {
-		c.SuccessJson("", "")
-	}
-}
-
-// @Title UpdateImgCid
-// @Description 更新用户头像
-// @Param imgCid body string true "图片上传至IPFS上的CID"
-// @Success 200 {object} controllers.RespJson
-// @router /updateimgcid [post]
-func (c *UserController) UpdateImgCid() {
-	CurUser := c.CurUser()
-
-	var user models.User
-	body := c.Ctx.Input.RequestBody
-	json.Unmarshal(body, &user)
-
-	o := orm.NewOrm()
-	user.Id = CurUser.Id
-	_, err := o.Update(&user, "img_cid")
-	if err != nil {
-		logs.Error(err)
-		c.ErrorJson("400000", "更新头像失败")
 	} else {
 		c.SuccessJson("", "")
 	}
@@ -189,6 +167,7 @@ func (c *UserController) VerifyMail() {
 	qt := orm.NewOrm().QueryTable(question)
 	qt.Filter("user_id", user.Id).All(&data, "Id", "Content")
 	userInfo.Questions = data
+	userInfo.Email = hashEmail
 
 	c.SuccessJson("", userInfo)
 }
@@ -369,7 +348,7 @@ func (c *UserController) GetImPubKeyList() {
 // @router /getuserinfo [get]
 func (c *UserController) GetUserInfo() {
 	var user UserInfo
-	CurUser := c.CurUser()
+	curUser := c.CurUser()
 
 	if user.QuestionSssData != "" {
 		key, _ := config.String("crypto")
@@ -387,13 +366,16 @@ func (c *UserController) GetUserInfo() {
 	// walletAddress := CurUser.Address
 	// ipns, _ := utils.GetDFSPath(walletAddress)
 	// user.Ipns = ipns
-	user.Ipns = CurUser.Ipns
+	user.Ipns = curUser.Ipns
 
-	user.DbAddress = CurUser.DbAddress
-	user.Name = CurUser.Name
-	user.Email = CurUser.Email // hash值
-	user.SafeLevel = CurUser.SafeLevel
-	user.ImgCid = CurUser.ImgCid
+	user.DbAddress = curUser.DbAddress
+	user.Name = curUser.Name
+	user.Email = curUser.Email // hash值
+	user.SafeLevel = curUser.SafeLevel
+
+	ipfsGateWay, _ := config.String("ipfs_gate_way")
+	user.ImgCid = ipfsGateWay + "/" + curUser.ImgCid
+
 	c.SuccessJson("", user)
 }
 
@@ -744,7 +726,43 @@ func (c *UserController) SendMail4VerifyCode() {
 	} else {
 		c.ErrorJson("400000", "Send verification code faild!")
 	}
+}
 
+// @Title UploadImg
+// @Description 上传头像
+// @Param file body string true "图片文件"
+// @Success 200 {object} controllers.RespJson
+// @router /uploadimg [post]
+func (c *UserController) UploadImg() {
+	curUser := c.CurUser()
+
+	file, header, err := c.GetFile("file")
+	if err != nil {
+		c.ErrorJson("400000", err.Error())
+	}
+	fileName := header.Filename
+	logs.Info("file name = ", fileName)
+	logs.Info("file = ", file)
+
+	defer file.Close()
+	// c.SaveToFile("file", "upload/"+fileName)
+
+	dataBytes, err := ioutil.ReadAll(file)
+	dataStr := string(dataBytes[:])
+
+	ipfsUrl := getIpfsUrl()
+	ipfs := utils.NewIpfs(ipfsUrl)
+	hash, _ := ipfs.Add(dataStr, true)
+
+	curUser.ImgCid = hash
+	o := orm.NewOrm()
+	_, err = o.Update(&curUser, "img_cid")
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "上传头像失败")
+	} else {
+		c.SuccessJson("", hash)
+	}
 }
 
 func checkUserStatus(email string) (status int) {
@@ -819,4 +837,9 @@ func verifyConfirmCode(confirmCode string) (bool, string) {
 		flag = false
 	}
 	return flag, msg
+}
+
+func getIpfsUrl() (ipfs string) {
+	ipfs, _ = config.String("ipfs_url")
+	return
 }

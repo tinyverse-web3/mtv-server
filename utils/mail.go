@@ -12,7 +12,7 @@ import (
 func Send(mailTo, subject, message string) (success bool) {
 	host, _ := config.String("mail::host")
 	port, _ := config.Int("mail::port")
-	userName, _ := config.String("mail::userName")
+	userName, _ := config.String("mail::username")
 	password, _ := config.String("mail::password")
 
 	m := gomail.NewMessage()

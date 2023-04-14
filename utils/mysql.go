@@ -65,6 +65,7 @@ func InitMySQL() {
 	orm.RegisterModel(new(models.Chat))
 	orm.RegisterModel(new(models.ChatNotify))
 	orm.RegisterModel(new(models.Guardian))
+	orm.RegisterModel(new(models.ImFriend))
 	orm.RegisterModel(new(models.NostrRelay))
 	orm.RegisterModel(new(models.Question))
 	orm.RegisterModel(new(models.QuestionTmp))
