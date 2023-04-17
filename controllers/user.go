@@ -35,7 +35,7 @@ type UserInfo struct {
 }
 
 // @Title UpdateSafeLevel
-// @Description 更新用户安全等级。当安全等级低于当前用户的等级，则不更新。
+// @Description 更新用户安全等级。当安全等级低于当前用户的等级，则不更新。(需验签)
 // @Param safeLevel body int true "安全等级"
 // @Success 200 {object} controllers.RespJson
 // @router /updatesafelevel [post]
@@ -70,7 +70,7 @@ func (c *UserController) UpdateSafeLevel() {
 }
 
 // @Title SavePassword
-// @Description 保存用户密码
+// @Description 保存用户密码(需验签)
 // @Param password body string true "密码"
 // @Success 200 {object} controllers.RespJson
 // @router /savepassword [post]
@@ -93,7 +93,7 @@ func (c *UserController) SavePassword() {
 }
 
 // @Title GetPassword
-// @Description 获取用户密码
+// @Description 获取用户密码(不需验签)
 // @Param email body string true "Email"
 // @Param confirmCode body string true "验证码"
 // @Success 200 {object} controllers.RespJson
@@ -123,62 +123,13 @@ func (c *UserController) GetPassword() {
 	c.SuccessJson("", user.Password)
 }
 
-// @Title VerifyMail
-// @Description 验证邮箱
-// @Param email body string true "Email"
-// @Param confirmCode body string true "验证码"
-// @Success 200 {object} controllers.RespJson
-// @router /verifymail [post]
-func (c *UserController) VerifyMail() {
-	var tmpUser UserInfo
-	body := c.Ctx.Input.RequestBody
-	json.Unmarshal(body, &tmpUser)
-
-	logs.Info(tmpUser)
-	flag, msg := verifyEmailAndConfirmCode(tmpUser.Email, tmpUser.ConfirmCode)
-	if !flag {
-		c.ErrorJson("400000", msg)
-		return
-	}
-
-	o := orm.NewOrm()
-	hashEmail := crypto.Md5(tmpUser.Email)
-
-	var user models.User
-	user.Email = hashEmail
-	o.Read(&user, "email")
-
-	var userInfo UserInfo
-	if user.QuestionSssData != "" {
-		key, _ := config.String("crypto")
-		deKey := crypto.DecryptBase64(key)
-		ct := crypto.DecryptAES(user.QuestionSssData, deKey)
-		userInfo.QuestionSssData = ct
-	}
-	if user.GuardianSssData != "" {
-		key, _ := config.String("crypto")
-		deKey := crypto.DecryptBase64(key)
-		ct := crypto.DecryptAES(user.GuardianSssData, deKey)
-		userInfo.GuardianSssData = ct
-	}
-
-	var data []models.Question
-	question := new(models.Question)
-	qt := orm.NewOrm().QueryTable(question)
-	qt.Filter("user_id", user.Id).All(&data, "Id", "Content")
-	userInfo.Questions = data
-	userInfo.Email = hashEmail
-
-	c.SuccessJson("", userInfo)
-}
-
 type GuardianSssInfo struct {
 	SssData   string            `json:"sssData"`
 	Guardians []models.Guardian `json:"guardians"`
 }
 
 // @Title GetSssData4Guardian
-// @Description 获取分片数据(守护者备份)和守护者列表
+// @Description 获取分片数据(守护者备份)和守护者列表(不需验签)
 // @Param email body string true "Email"
 // @Param confirmCode body string true "验证码"
 // @Success 200 {object} controllers.RespJson
@@ -231,7 +182,7 @@ func (c *UserController) GetSssData4Guardian() {
 }
 
 // @Title GetSssData4Question
-// @Description 获取分片数据(智能隐私备份)
+// @Description 获取分片数据(智能隐私备份，不需验签)
 // @Param email body string true "Email"
 // @Param confirmCode body string true "验证码"
 // @Success 200 {object} controllers.RespJson
@@ -259,11 +210,21 @@ func (c *UserController) GetSssData4Question() {
 	key, _ := config.String("crypto")
 	deKey := crypto.DecryptBase64(key)
 	deData := crypto.DecryptAES(user.QuestionSssData, deKey)
-	c.SuccessJson("", deData)
+
+	var userInfo UserInfo
+	var data []models.Question
+	question := new(models.Question)
+	qt := orm.NewOrm().QueryTable(question)
+	qt.Filter("user_id", user.Id).All(&data, "Id", "Content")
+	userInfo.Questions = data
+	userInfo.Email = user.Email
+	userInfo.QuestionSssData = deData
+
+	c.SuccessJson("", userInfo)
 }
 
 // @Title SaveSssData4Guardian
-// @Description 保存分片数据(守护者备份)
+// @Description 保存分片数据(守护者备份，需验签)
 // @Param guardianSssData body string true "分片数据"
 // @Success 200 {object} controllers.RespJson
 // @router /savesssdata4guardian [post]
@@ -292,7 +253,7 @@ func (c *UserController) SaveSssData4Guardian() {
 }
 
 // @Title SaveSssData4Question
-// @Description 保存分片数据(智能隐私备份)
+// @Description 保存分片数据(智能隐私备份，需验签)
 // @Param questionSssData body string true "分片数据"
 // @Success 200 {object} controllers.RespJson
 // @router /savesssdata4question [post]
@@ -320,7 +281,7 @@ func (c *UserController) SaveSssData4Question() {
 }
 
 // @Title GetImPubKeyList
-// @Description 获取IM公钥列表(除当前用户)
+// @Description 获取IM公钥列表(除当前用户，需验签)
 // @Param email query string false "Email"
 // @Success 200 {object} controllers.RespJson
 // @router /getimpubkeylist [get]
@@ -343,7 +304,7 @@ func (c *UserController) GetImPubKeyList() {
 }
 
 // @Title GetUserInfo
-// @Description 获取当前用户信息
+// @Description 获取当前用户信息(需验签)
 // @Success 200 {object} controllers.RespJson
 // @router /getuserinfo [get]
 func (c *UserController) GetUserInfo() {
@@ -380,7 +341,7 @@ func (c *UserController) GetUserInfo() {
 }
 
 // @Title UpdateImPkey
-// @Description 更新当前用户IM公钥
+// @Description 更新当前用户IM公钥(需验签)
 // @Param nostrPublicKey body string true "Email"
 // @Success 200 {object} controllers.RespJson
 // @router /updateimpkey [post]
@@ -406,7 +367,7 @@ func (c *UserController) UpdateImPkey() {
 }
 
 // @Title UpdateName
-// @Description 更新用户名称
+// @Description 更新用户名称(需验签)
 // @Param name body string false "用户名称"
 // @Success 200 {object} controllers.RespJson
 // @router /updatename [post]
@@ -451,7 +412,7 @@ func (c *UserController) UpdateName() {
 }
 
 // @Title ModifyUser
-// @Description 更新当前用户信息
+// @Description 更新当前用户信息(需验签)
 // @Param publicKey body string false "公钥"
 // @Param address body string false "钱包地址"
 // @Param sign body string false "签名"
@@ -516,7 +477,7 @@ func (c *UserController) ModifyUser() {
 }
 
 // @Title BindMail
-// @Description 绑定邮箱(如果未设置name，则随机生成name，格式为：mtv_6位随机数字)
+// @Description 绑定邮箱(需验签，且如果未设置name，则随机生成name，格式为：mtv_6位随机数字)
 // @Param public_key header string true "public key"
 // @Param email body string true "Email"
 // @Param confirmCode body string true "验证码"
@@ -531,18 +492,11 @@ func (c *UserController) BindMail() {
 	logs.Info(tmpUser)
 	email := strings.TrimSpace(tmpUser.Email)
 
-	var publicKey string
-	tmp := c.Ctx.Request.Header["Public_key"]
-	if tmp == nil {
-		c.ErrorJson("600000", "public_key不能为空")
+	publicKey := c.Ctx.Request.Header["Public_key"][0]
+	// 验证public key是否为空
+	if publicKey == "" {
+		c.ErrorJson("400000", "public_key不能为空")
 		return
-	} else {
-		publicKey = tmp[0]
-		// 验证public key是否为空
-		if publicKey == "" {
-			c.ErrorJson("400000", "public_key不能为空不能为空")
-			return
-		}
 	}
 
 	verify, msg := verifyEmailAndConfirmCode(tmpUser.Email, tmpUser.ConfirmCode)
@@ -557,75 +511,75 @@ func (c *UserController) BindMail() {
 	var user models.User
 	user.Email = hashEmail
 	err := o.Read(&user, "email")
-	if err == orm.ErrNoRows { // email不存在，则insert用户
-		name := generateUserName()
-		user = models.User{Email: hashEmail, Status: 1, PublicKey: publicKey, Name: name}
-		_, err := o.Insert(&user)
-		if err != nil {
-			logs.Error(err)
-			c.ErrorJson("400000", "Bind mail faild!")
-			return
-		} else {
-			// 生成默认守护者
-			var guardian models.Guardian
-			guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email)}
-			_, err := o.Insert(&guardian)
+	if err == orm.ErrNoRows { // email未进行过绑定
+		user.PublicKey = publicKey
+		err = o.Read(&user, "public_key") // 根据public key，查询user
+		if err == orm.ErrNoRows {         // public key也不存在
+			name := generateUserName()
+			user = models.User{Email: hashEmail, Status: 1, PublicKey: publicKey, Name: name}
+			_, err := o.Insert(&user)
 			if err != nil {
 				logs.Error(err)
 				c.ErrorJson("400000", "Bind mail faild!")
 				return
 			} else {
+				// 生成默认守护者
+				var guardian models.Guardian
+				guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email)}
+				_, err := o.Insert(&guardian)
+				if err != nil {
+					logs.Error(err)
+					c.ErrorJson("400000", "Bind mail faild!")
+					return
+				} else {
+					c.SuccessJson("", "")
+					return
+				}
+			}
+		} else {
+			if user.Email != "" { // db中email不为空
+				c.ErrorJson("400000", "绑定失败：邮箱已绑定")
+				return
+			} else { // db中email为空
+				user.Email = hashEmail
+				user.PublicKey = publicKey
+				o.Update(&user, "email", "public_key")
 				c.SuccessJson("", "")
 				return
 			}
 		}
-	}
+	} else { //email进行过绑定(email不可能为空)
+		if user.PublicKey == publicKey {
+			name := user.Name
+			if name == "" { // 如果未设置name，则随机生成name，格式为：mtv_6位随机数字
+				user.Name = generateUserName()
+			}
 
-	if user.PublicKey == publicKey {
-		c.SuccessJson("", "")
-		return
-	}
-
-	if user.PublicKey != "" && publicKey != user.PublicKey {
-		c.ErrorJson("400000", "绑定失败：邮箱已绑定")
-		return
-	}
-
-	// public key存在，判断email与数据库中的数据是否一致
-	user.PublicKey = publicKey
-	err = o.Read(&user, "public_key")
-	if err == nil {
-		if email != user.Email {
-			logs.Info("public key 已存在")
+			user.Status = 1 // 已验证
+			o.Update(&user)
+			c.SuccessJson("", "")
+			return
+		} else {
 			c.ErrorJson("400000", "绑定失败：邮箱已绑定")
 			return
 		}
+
 	}
-
-	name := user.Name
-	if name == "" { // 如果未设置name，则随机生成name，格式为：mtv_6位随机数字
-		user.Name = generateUserName()
-	}
-
-	user.Status = 1 // 已验证
-	o.Update(&user)
-
-	c.SuccessJson("", "")
 }
 
-func generateUserName() (name string) {
-	o := orm.NewOrm()
-	var tmpUser models.User
-	for true {
-		name = "mtv_" + utils.RandomNum(6)
-		tmpUser.Name = name
-		err := o.Read(&tmpUser, "name")
-		if err == orm.ErrNoRows {
-			break
-		}
-	}
-	return
-}
+// func generateUserName() (name string) {
+// 	o := orm.NewOrm()
+// 	var tmpUser models.User
+// 	for true {
+// 		name = "mtv_" + utils.RandomNum(6)
+// 		tmpUser.Name = name
+// 		err := o.Read(&tmpUser, "name")
+// 		if err == orm.ErrNoRows {
+// 			break
+// 		}
+// 	}
+// 	return
+// }
 
 // func (c *UserController) SendMail() {
 // 	var user models.User
@@ -681,7 +635,7 @@ type VerifyCodeInfo struct {
 }
 
 // @Title SendMail4VerifyCode
-// @Description 发送验证码
+// @Description 发送验证码(不需验签)
 // @Param email body string true "email"
 // @Success 200 {object} controllers.RespJson
 // @router /sendmail4verifycode [post]
@@ -729,7 +683,7 @@ func (c *UserController) SendMail4VerifyCode() {
 }
 
 // @Title UploadImg
-// @Description 上传头像
+// @Description 上传头像(需验签)
 // @Param file body string true "图片文件"
 // @Success 200 {object} controllers.RespJson
 // @router /uploadimg [post]
@@ -738,6 +692,7 @@ func (c *UserController) UploadImg() {
 
 	file, header, err := c.GetFile("file")
 	if err != nil {
+		logs.Error("999999999999999999")
 		c.ErrorJson("400000", err.Error())
 	}
 	fileName := header.Filename

@@ -169,7 +169,7 @@ func (c *ImController) Notify() {
 }
 
 // @Title SearchUser
-// @Description 根据用户名或公钥查询用户，并返回用户信息
+// @Description 根据用户名或公钥查询用户，并返回用户信息(需验签)
 // @Param param query string true "用户名或公钥"
 // @Success 200 {object} controllers.RespJson
 // @router /searchuser [get]
@@ -203,7 +203,7 @@ func (c *ImController) SearchUser() {
 }
 
 // @Title Friends
-// @Description 获取当前用户的好友列表
+// @Description 获取当前用户的好友列表(需验签)
 // @Success 200 {object} controllers.RespJson
 // @router /friends [get]
 func (c *ImController) Friends() {
@@ -224,12 +224,14 @@ func (c *ImController) Friends() {
 }
 
 // @Title AddFriend
-// @Description 添加好友
-// @Param fromPublicKey body string true "nostr public key"
-// @Param toPublicKey body string true "nostr public key"
+// @Description 添加好友(需验签)
+// @Param toPublicKey body string true "public key"
 // @Success 200 {object} controllers.RespJson
 // @router /addfriend [post]
 func (c *ImController) AddFriend() {
+	curUser := c.CurUser()
+	logs.Info("cur user = ", curUser)
+
 	var info ImPublicKey
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &info)
@@ -237,7 +239,7 @@ func (c *ImController) AddFriend() {
 
 	var friend models.ImFriend
 	o := orm.NewOrm()
-	friend.FromPublicKey = info.FromPublicKey
+	friend.FromPublicKey = curUser.PublicKey
 	friend.ToPublicKey = info.ToPublicKey
 	err := o.Read(&friend, "from_public_key", "to_public_key")
 	if err == orm.ErrNoRows {
@@ -259,9 +261,6 @@ func (c *ImController) AddFriend() {
 			}
 		}
 	} else {
-		friend.FromPublicKey = info.FromPublicKey
-		friend.ToPublicKey = info.ToPublicKey
-		o.Read(&friend, "from_public_key", "to_public_key")
 		c.SuccessJson("", friend.Status)
 	}
 }

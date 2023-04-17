@@ -8,13 +8,12 @@ import (
 	"github.com/beego/i18n"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/form3tech-oss/jwt-go"
 	solsha3 "github.com/miguelmota/go-solidity-sha3"
 
 	"strings"
-	"time"
 
 	"mtv/models"
+	"mtv/utils"
 )
 
 type RespJson struct {
@@ -65,6 +64,16 @@ func (c *BaseController) Prepare() {
 			publicKey = tmp[0]
 		}
 		logs.Info("public key = ", publicKey)
+		o := orm.NewOrm()
+
+		var user models.User
+		user.PublicKey = publicKey
+		err := o.Read(&user, "public_key")
+		if err == orm.ErrNoRows {
+			name := generateUserName()
+			user = models.User{Status: 1, PublicKey: publicKey, Name: name}
+			_, err = o.Insert(&user)
+		}
 
 		var signature string
 		tmp = c.Ctx.Request.Header["Sign"]
@@ -140,6 +149,20 @@ func sign(address string, data string, signature string, publicKeyStr string) bo
 	return result
 }
 
+func generateUserName() (name string) {
+	o := orm.NewOrm()
+	var tmpUser models.User
+	for true {
+		name = "mtv_" + utils.RandomNum(6)
+		tmpUser.Name = name
+		err := o.Read(&tmpUser, "name")
+		if err == orm.ErrNoRows {
+			break
+		}
+	}
+	return
+}
+
 func (c *BaseController) setLang() {
 	c.Lang = "" // This field is from i18n.Locale.
 
@@ -194,12 +217,16 @@ func (c *BaseController) ErrorJson(code string, msg string) {
 
 func isContain(item string) bool {
 	uris := []string{
-		"/auth/checksign",
-		"/v0/user/getsssdata",
-		"/v0/user/sendmail",
-		"/v0/user/sendverifycode",
-		"/v0/user/verifymail",
-		"/v0/storage/test",
+		"/v0/auth/checksign",
+
+		"/v0/user/sendmail4verifycode",
+		"/v0/user/getpassword",
+		"/v0/user/getsssdata4guardian",
+		"/v0/user/getsssdata4question",
+		"/v0/user/uploadimg",
+
+		"/v0/storage/test", // for test
+
 		"/v0/im/relays",
 		"/v0/im/exchangeimpkey",
 	}
@@ -215,14 +242,14 @@ func isContain(item string) bool {
 	return contain
 }
 
-// 生成token
-func createToken(email string) string {
-	appKey := "1qazXSW@3edc"
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user": email,
-		"exp":  time.Now().Add(24 * time.Hour * time.Duration(1)).Unix(),
-		"iat":  time.Now().Unix(),
-	})
-	tokenStr, _ := token.SignedString([]byte(appKey))
-	return tokenStr
-}
+// // 生成token
+// func createToken(email string) string {
+// 	appKey := "1qazXSW@3edc"
+// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+// 		"user": email,
+// 		"exp":  time.Now().Add(24 * time.Hour * time.Duration(1)).Unix(),
+// 		"iat":  time.Now().Unix(),
+// 	})
+// 	tokenStr, _ := token.SignedString([]byte(appKey))
+// 	return tokenStr
+// }
