@@ -716,7 +716,9 @@ func (c *UserController) UploadImg() {
 		logs.Error(err)
 		c.ErrorJson("400000", "上传头像失败")
 	} else {
-		c.SuccessJson("", hash)
+		ipfsGateWay, _ := config.String("ipfs_gate_way")
+		url := ipfsGateWay + "/" + hash
+		c.SuccessJson("", url)
 	}
 }
 
