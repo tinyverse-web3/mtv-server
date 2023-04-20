@@ -262,7 +262,7 @@ func (c *ImController) AddFriend() {
 				// 添加到redis中，用于通过websocket通知被添加者
 				key := "friend_" + friend.FromPublicKey
 				logs.Info("key = ", key)
-				tmp := utils.GetStr(key)
+				tmp, _ := utils.GetStr(key)
 				var names []string
 				if tmp != "" {
 					names = strings.Split(tmp, ",")

@@ -46,7 +46,7 @@ func (c *GuardianController) Add() {
 
 	verifyCode := tmp.VerifyCode
 	if guardian.Type == "mail" {
-		tmpVerifyCode := utils.GetStr(guardian.Account)
+		tmpVerifyCode, _ := utils.GetStr(guardian.Account)
 		if tmpVerifyCode == "" {
 			logs.Error("验证码超时")
 			c.ErrorJson("400000", "验证码超时，请重新获取")

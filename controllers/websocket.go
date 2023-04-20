@@ -117,7 +117,7 @@ func notice(client *Client) {
 
 		key := "friend_" + publicKey
 		logs.Info("key = ", key)
-		tmp := utils.GetStr(key)
+		tmp, _ := utils.GetStr(key)
 		logs.Info("public keys = ", tmp)
 		if tmp != "" {
 			names := strings.Split(tmp, `,`)

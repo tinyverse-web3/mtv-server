@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mtv/controllers"
 	_ "mtv/routers"
 	"mtv/task"
 	"mtv/utils"
@@ -14,6 +15,7 @@ func main() {
 	//数据库初始化
 	utils.InitMySQL()
 	utils.InitRedis()
+	go controllers.InitWebSocket()
 
 	beego.AddFuncMap("i18n", i18n.Tr)
 	task.StartTask()

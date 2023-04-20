@@ -567,69 +567,6 @@ func (c *UserController) BindMail() {
 	}
 }
 
-// func generateUserName() (name string) {
-// 	o := orm.NewOrm()
-// 	var tmpUser models.User
-// 	for true {
-// 		name = "mtv_" + utils.RandomNum(6)
-// 		tmpUser.Name = name
-// 		err := o.Read(&tmpUser, "name")
-// 		if err == orm.ErrNoRows {
-// 			break
-// 		}
-// 	}
-// 	return
-// }
-
-// func (c *UserController) SendMail() {
-// 	var user models.User
-// 	body := c.Ctx.Input.RequestBody
-// 	json.Unmarshal(body, &user)
-
-// 	email := user.Email
-
-// 	verify, msg := verifyEmail(email) // email不需转为hash
-// 	if !verify {
-// 		c.ErrorJson("400000", msg)
-// 		return
-// 	}
-
-// 	hashEmail := crypto.Md5(email)
-// 	o := orm.NewOrm()
-// 	tmpUser := models.User{Email: hashEmail}
-// 	status := -1
-// 	err := o.Read(&tmpUser, "email")
-// 	if err != orm.ErrNoRows {
-// 		status = tmpUser.Status
-// 	}
-
-// 	if status == -1 { // email不存在
-// 		user = models.User{Email: hashEmail, Status: 0}
-// 		_, err := o.Insert(&user)
-// 		if err != nil {
-// 			logs.Error(err)
-// 			c.ErrorJson("400000", "Send mail faild!")
-// 			return
-// 		}
-// 	} else {
-// 		// 如果email存在，判断发送email的频率
-// 		tmpVerifyCode := utils.GetStr(email)
-// 		if tmpVerifyCode != "" {
-// 			c.ErrorJson("400000", "验证码已发送，请查看邮箱。")
-// 			return
-// 		}
-// 	}
-
-// 	success := sendMail4ConfirmCode(email)
-
-// 	if success {
-// 		user = models.User{Email: hashEmail}
-// 		c.SuccessJson("Send mail success!", "")
-// 	} else {
-// 		c.ErrorJson("400000", "Send mail faild!")
-// 	}
-// }
-
 type VerifyCodeInfo struct {
 	Email string `json:"email"`
 }
@@ -655,7 +592,8 @@ func (c *UserController) SendMail4VerifyCode() {
 	verifyCode := "123456" // TODO:for test
 
 	// 判断发送验证码的频率
-	tmpVerifyCode := utils.GetStr(email)
+	tmpVerifyCode, _ := utils.GetStr(email)
+
 	if tmpVerifyCode != "" {
 		c.ErrorJson("400000", "验证码已发送，请查看邮箱。")
 		return
@@ -754,8 +692,7 @@ func verifyEmailAndConfirmCode(email, verifyCode string) (bool, string) {
 	}
 
 	hashEmail := crypto.Md5(email)
-	tmpVerifyCode := utils.GetStr(hashEmail)
-
+	tmpVerifyCode, _ := utils.GetStr(hashEmail)
 	// 判断验证码是否过期
 	if tmpVerifyCode == "" { // 验证码1分钟失效
 		msg = "验证码已过期"
