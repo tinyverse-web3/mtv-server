@@ -3,6 +3,8 @@ package controllers
 import (
 	"encoding/json"
 	"mtv/models"
+	"mtv/utils"
+	"strings"
 	"time"
 
 	"github.com/beego/beego/v2/client/orm"
@@ -213,7 +215,7 @@ func (c *ImController) Friends() {
 	ipfsGateWay, _ := config.String("ipfs_gate_way")
 	o := orm.NewOrm()
 	var users = []models.User{}
-	_, err := o.Raw("select name, nostr_public_key, CONCAT(?, img_cid) as img_cid from user where nostr_public_key in (select to_public_key from im_friend where from_public_key = ?)", ipfsGateWay, curUser.NostrPublicKey).QueryRows(&users)
+	_, err := o.Raw("select name, nostr_public_key, case when img_cid = '' then '' when img_cid <> '' then CONCAT(?, img_cid) end as img_cid from user where public_key in (select to_public_key from im_friend where from_public_key = ?)", ipfsGateWay, curUser.PublicKey).QueryRows(&users)
 	if err != nil {
 		logs.Error(err)
 		c.ErrorJson("400000", "获取好友列表失败")
@@ -243,21 +245,43 @@ func (c *ImController) AddFriend() {
 	friend.ToPublicKey = info.ToPublicKey
 	err := o.Read(&friend, "from_public_key", "to_public_key")
 	if err == orm.ErrNoRows {
-		friend = models.ImFriend{FromPublicKey: info.FromPublicKey, ToPublicKey: info.ToPublicKey}
+		friend = models.ImFriend{FromPublicKey: friend.FromPublicKey, ToPublicKey: friend.ToPublicKey}
 		_, err := o.Insert(&friend)
 		if err != nil {
 			logs.Error(err)
 			c.ErrorJson("400000", "添加好友失败")
 			return
 		} else {
-			friend = models.ImFriend{FromPublicKey: info.ToPublicKey, ToPublicKey: info.FromPublicKey} // 互加好友
+			friend = models.ImFriend{FromPublicKey: friend.ToPublicKey, ToPublicKey: friend.FromPublicKey} // 互加好友
+			_, err := o.Insert(&friend)
 			if err != nil {
 				logs.Error(err)
 				c.ErrorJson("400000", "添加好友失败")
 				return
 			} else {
-				//todo : websock server推送给创建者
-				c.SuccessJson("", friend.Status)
+				// 添加到redis中，用于通过websocket通知被添加者
+				key := "friend_" + friend.FromPublicKey
+				logs.Info("key = ", key)
+				tmp := utils.GetStr(key)
+				var names []string
+				if tmp != "" {
+					names = strings.Split(tmp, ",")
+				}
+				var user models.User
+				user.PublicKey = friend.ToPublicKey
+
+				err = o.Read(&user, "public_key")
+				if err == nil {
+					names = append(names, user.Name)
+					logs.Info("names = ", names)
+					utils.SetStr(key, strings.Join(names, ","), 24*time.Hour)
+
+					c.SuccessJson("", friend.Status)
+				} else {
+					logs.Error(err)
+					c.ErrorJson("400000", "添加好友失败")
+					return
+				}
 			}
 		}
 	} else {
