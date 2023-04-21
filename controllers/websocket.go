@@ -132,14 +132,11 @@ func notice(client *Client) {
 			utils.SetStr(key, tmp, 24*time.Minute)
 
 			msg = []byte(name)
-		} else {
-			msg = []byte("no new friends")
-		}
-
-		err := client.conn.WriteMessage(1, msg)
-		if err != nil {
-			fmt.Println("写入错误(notice)")
-			break
+			err := client.conn.WriteMessage(1, msg)
+			if err != nil {
+				fmt.Println("写入错误(notice)")
+				break
+			}
 		}
 	}
 }
