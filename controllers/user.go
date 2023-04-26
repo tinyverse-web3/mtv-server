@@ -511,15 +511,30 @@ func (c *UserController) BindMail() {
 	var user models.User
 	user.Email = hashEmail
 	err := o.Read(&user, "email")
+	if err == nil {
+		c.ErrorJson("400000", email+"已绑定。")
+		return
+	}
+
+	user.PublicKey = publicKey
+	err = o.Read(&user, "public_key")
 	if err != nil {
 		logs.Error(err)
 		c.ErrorJson("400000", "Bind mail faild!")
 		return
 	} else { // 在验签时已经insert user，所以此处只需添加守护者
+		user.Email = hashEmail
+		_, err := o.Update(&user)
+		if err != nil {
+			logs.Error(err)
+			c.ErrorJson("400000", "Bind mail faild!")
+			return
+		}
+
 		// 生成默认守护者
 		var guardian models.Guardian
 		guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email)}
-		_, err := o.Insert(&guardian)
+		_, err = o.Insert(&guardian)
 		if err != nil {
 			logs.Error(err)
 			c.ErrorJson("400000", "Bind mail faild!")
