@@ -511,60 +511,23 @@ func (c *UserController) BindMail() {
 	var user models.User
 	user.Email = hashEmail
 	err := o.Read(&user, "email")
-	if err == orm.ErrNoRows { // email未进行过绑定
-		user.PublicKey = publicKey
-		err = o.Read(&user, "public_key") // 根据public key，查询user
-		if err == orm.ErrNoRows {         // public key也不存在
-			// name := generateUserName()
-			user = models.User{Email: hashEmail, Status: 1, PublicKey: publicKey}
-			_, err := o.Insert(&user)
-			if err != nil {
-				logs.Error(err)
-				c.ErrorJson("400000", "Bind mail faild!")
-				return
-			} else {
-				logs.Info("default guardian")
-				// 生成默认守护者
-				var guardian models.Guardian
-				guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email)}
-				_, err := o.Insert(&guardian)
-				if err != nil {
-					logs.Error(err)
-					c.ErrorJson("400000", "Bind mail faild!")
-					return
-				} else {
-					c.SuccessJson("", "")
-					return
-				}
-			}
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "Bind mail faild!")
+		return
+	} else { // 在验签时已经insert user，所以此处只需添加守护者
+		// 生成默认守护者
+		var guardian models.Guardian
+		guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email)}
+		_, err := o.Insert(&guardian)
+		if err != nil {
+			logs.Error(err)
+			c.ErrorJson("400000", "Bind mail faild!")
+			return
 		} else {
-			if user.Email != "" { // db中email不为空
-				c.ErrorJson("400000", "绑定失败：邮箱已绑定")
-				return
-			} else { // db中email为空
-				user.Email = hashEmail
-				user.PublicKey = publicKey
-				o.Update(&user, "email", "public_key")
-				c.SuccessJson("", "")
-				return
-			}
-		}
-	} else { //email进行过绑定(email不可能为空)
-		if user.PublicKey == publicKey {
-			name := user.Name
-			if name == "" { // 如果未设置name，则随机生成name，格式为：mtv_6位随机数字
-				user.Name = generateUserName()
-			}
-
-			user.Status = 1 // 已验证
-			o.Update(&user)
 			c.SuccessJson("", "")
 			return
-		} else {
-			c.ErrorJson("400000", "绑定失败：邮箱已绑定")
-			return
 		}
-
 	}
 }
 
