@@ -515,14 +515,15 @@ func (c *UserController) BindMail() {
 		user.PublicKey = publicKey
 		err = o.Read(&user, "public_key") // 根据public key，查询user
 		if err == orm.ErrNoRows {         // public key也不存在
-			name := generateUserName()
-			user = models.User{Email: hashEmail, Status: 1, PublicKey: publicKey, Name: name}
+			// name := generateUserName()
+			user = models.User{Email: hashEmail, Status: 1, PublicKey: publicKey}
 			_, err := o.Insert(&user)
 			if err != nil {
 				logs.Error(err)
 				c.ErrorJson("400000", "Bind mail faild!")
 				return
 			} else {
+				logs.Info("default guardian")
 				// 生成默认守护者
 				var guardian models.Guardian
 				guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email)}
