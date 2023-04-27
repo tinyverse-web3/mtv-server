@@ -215,7 +215,7 @@ func (c *ImController) Friends() {
 	ipfsGateWay, _ := config.String("ipfs_gate_way")
 	o := orm.NewOrm()
 	var users = []models.User{}
-	_, err := o.Raw("select name, nostr_public_key, case when img_cid = '' then '' when img_cid <> '' then CONCAT(?, img_cid) end as img_cid from user where public_key in (select to_public_key from im_friend where from_public_key = ?)", ipfsGateWay, curUser.PublicKey).QueryRows(&users)
+	_, err := o.Raw("select name, public_key, nostr_public_key, case when img_cid = '' then '' when img_cid <> '' then CONCAT(?, img_cid) end as img_cid from user where public_key in (select to_public_key from im_friend where from_public_key = ?)", ipfsGateWay, curUser.PublicKey).QueryRows(&users)
 	if err != nil {
 		logs.Error(err)
 		c.ErrorJson("400000", "获取好友列表失败")

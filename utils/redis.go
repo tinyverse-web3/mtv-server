@@ -32,21 +32,15 @@ func InitRedis() {
 
 func SetStr(key, value string, timeout time.Duration) (err error) {
 	err = rdb.Set(ctx, key, value, timeout).Err()
-	if err != nil {
-		logs.Error(err)
-	}
 	return
 }
 
 func GetStr(key string) (value string, err error) {
 	value, err = rdb.Get(ctx, key).Result()
-	if err != nil {
-		logs.Error(err)
-	}
 	return
 }
 
 func DelKey(key string) (err error) {
-	// err = redisCache.Delete(context.Background(), key)
+	err = rdb.Del(ctx, key).Err()
 	return
 }

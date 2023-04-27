@@ -533,7 +533,7 @@ func (c *UserController) BindMail() {
 
 		// 生成默认守护者
 		var guardian models.Guardian
-		guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email)}
+		guardian = models.Guardian{UserId: user.Id, Account: hashEmail, AccountMask: utils.Mask(email), Type: "email"}
 		_, err = o.Insert(&guardian)
 		if err != nil {
 			logs.Error(err)
