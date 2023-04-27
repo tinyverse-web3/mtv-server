@@ -76,48 +76,48 @@ func (c *BaseController) Prepare() {
 			_, err = o.Insert(&user)
 		}
 
-		var signature string
-		tmp = c.Ctx.Request.Header["Sign"]
-		if tmp == nil {
-			c.ErrorJson("600000", "sign不能为空")
-			return
-		} else {
-			signature = tmp[0]
-		}
-		logs.Info("sign = ", signature)
+		// var signature string
+		// tmp = c.Ctx.Request.Header["Sign"]
+		// if tmp == nil {
+		// 	c.ErrorJson("600000", "sign不能为空")
+		// 	return
+		// } else {
+		// 	signature = tmp[0]
+		// }
+		// logs.Info("sign = ", signature)
 
-		var address string
-		tmp = c.Ctx.Request.Header["Address"]
-		if tmp == nil {
-			c.ErrorJson("600000", "Address不能为空")
-			return
-		} else {
-			address = tmp[0]
-		}
-		logs.Info("address = ", address)
+		// var address string
+		// tmp = c.Ctx.Request.Header["Address"]
+		// if tmp == nil {
+		// 	c.ErrorJson("600000", "Address不能为空")
+		// 	return
+		// } else {
+		// 	address = tmp[0]
+		// }
+		// logs.Info("address = ", address)
 
-		var data string
-		method := c.Ctx.Request.Method
-		logs.Info("method = ", method)
-		switch method {
-		case "GET":
-			data = strings.Replace(uri, "/v0", "", 1)
-			break
-		case "POST":
-			data = string(c.Ctx.Input.RequestBody)
-			if data == "" {
-				data = strings.Replace(uri, "/v0", "", 1)
-			}
-			break
-		}
-		logs.Info("data = ", data)
+		// var data string
+		// method := c.Ctx.Request.Method
+		// logs.Info("method = ", method)
+		// switch method {
+		// case "GET":
+		// 	data = strings.Replace(uri, "/v0", "", 1)
+		// 	break
+		// case "POST":
+		// 	data = string(c.Ctx.Input.RequestBody)
+		// 	if data == "" {
+		// 		data = strings.Replace(uri, "/v0", "", 1)
+		// 	}
+		// 	break
+		// }
+		// logs.Info("data = ", data)
 
-		match := sign(address, data, signature, publicKey)
-		if !match {
-			logs.Info("验签失败")
-			c.ErrorJson("600000", "验签失败")
-			return
-		}
+		// match := sign(address, data, signature, publicKey)
+		// if !match {
+		// 	logs.Info("验签失败")
+		// 	c.ErrorJson("600000", "验签失败")
+		// 	return
+		// }
 	}
 
 	logs.Info("Prepare end")

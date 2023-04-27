@@ -27,6 +27,11 @@ func init() {
 				&controllers.GuardianController{},
 			),
 		),
+		beego.NSNamespace("/gun",
+			beego.NSInclude(
+				&controllers.GunController{},
+			),
+		),
 		// beego.NSAutoRouter(&controllers.ImController{}),
 		beego.NSNamespace("/im",
 			beego.NSInclude(
