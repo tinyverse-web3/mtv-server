@@ -131,6 +131,6 @@ func (c *GuardianController) List() {
 	guardian := new(models.Guardian)
 	qt := orm.NewOrm().QueryTable(guardian)
 	// qt.Filter("user_id", curUser.Id).Exclude("account__in", curUser.Email).All(&data, "type", "account", "accountMask")
-	qt.Filter("user_id", curUser.Id).All(&data, "type", "account", "accountMask")
+	qt.Filter("user_id", curUser.Id).All(&data, "id", "type", "account", "accountMask")
 	c.SuccessJson("", data)
 }
