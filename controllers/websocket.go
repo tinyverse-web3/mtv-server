@@ -110,15 +110,12 @@ func read(client *Client) {
 func notice(client *Client) {
 	for {
 		time.Sleep(5 * time.Second)
-		logs.Info("notice")
 
 		var msg []byte
 		publicKey := client.id
 
 		key := "friend_" + publicKey
-		logs.Info("key = ", key)
 		tmp, _ := utils.GetStr(key)
-		logs.Info("public keys = ", tmp)
 		if tmp != "" {
 			names := strings.Split(tmp, `,`)
 			name := names[0]
