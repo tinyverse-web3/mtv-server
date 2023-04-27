@@ -215,7 +215,7 @@ func (c *UserController) GetSssData4Question() {
 	var data []models.Question
 	question := new(models.Question)
 	qt := orm.NewOrm().QueryTable(question)
-	qt.Filter("user_id", user.Id).All(&data, "Id", "type", "Content")
+	qt.Filter("user_id", user.Id).All(&data, "Id", "type", "Content", "title")
 	userInfo.Questions = data
 	userInfo.Email = user.Email
 	userInfo.QuestionSssData = deData

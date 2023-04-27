@@ -60,7 +60,7 @@ func (c *QuestionController) List() {
 	var data []models.Question
 	question := new(models.Question)
 	qt := orm.NewOrm().QueryTable(question)
-	qt.Filter("user_id", CurUser.Id).All(&data, "type", "content")
+	qt.Filter("user_id", CurUser.Id).All(&data, "type", "content", "title")
 	c.SuccessJson("", data)
 }
 
@@ -85,8 +85,9 @@ func (c *QuestionController) Add() {
 	var questions []QuestionInfo
 	body := c.Ctx.Input.RequestBody
 	json.Unmarshal(body, &questions)
+	logs.Info("questions = ", body)
 	for _, q := range questions {
-		question = &models.Question{UserId: CurUser.Id, Content: q.Content, Type: q.Type}
+		question = &models.Question{UserId: CurUser.Id, Content: q.Content, Type: q.Type, Title: q.Title}
 		o.Insert(question)
 	}
 
