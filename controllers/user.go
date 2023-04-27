@@ -164,7 +164,7 @@ func (c *UserController) GetSssData4Guardian() {
 		c.ErrorJson("400000", "获取分片数据失败")
 		return
 	}
-	if user.QuestionSssData == "" {
+	if user.GuardianSssData == "" {
 		c.ErrorJson("400000", "分片数据为空")
 		return
 	}
@@ -575,18 +575,19 @@ func (c *UserController) SendMail4VerifyCode() {
 		return
 	}
 
+	hashEmail := crypto.Md5(email)
+
 	// verifyCode := utils.RandomNum(6)
 	verifyCode := "123456" // TODO:for test
 
 	// 判断发送验证码的频率
-	tmpVerifyCode, _ := utils.GetStr(email)
+	tmpVerifyCode, _ := utils.GetStr(hashEmail)
 
 	if tmpVerifyCode != "" {
 		c.ErrorJson("400000", "验证码已发送，请查看邮箱。")
 		return
 	}
 
-	hashEmail := crypto.Md5(email)
 	utils.SetStr(hashEmail, verifyCode, 1*time.Minute)
 	subject := "发送验证码"
 	message := `
