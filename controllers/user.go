@@ -164,6 +164,10 @@ func (c *UserController) GetSssData4Guardian() {
 		c.ErrorJson("400000", "获取分片数据失败")
 		return
 	}
+	if user.QuestionSssData == "" {
+		c.ErrorJson("400000", "分片数据为空")
+		return
+	}
 	key, _ := config.String("crypto")
 	deKey := crypto.DecryptBase64(key)
 	deData := crypto.DecryptAES(user.GuardianSssData, deKey)
