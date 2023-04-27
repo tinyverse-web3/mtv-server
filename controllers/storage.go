@@ -45,3 +45,7 @@ func (c *StorageController) Test() {
 	c.SuccessJson("", seed)
 	// c.Abort("403")
 }
+
+func (c *StorageController) Index() {
+	c.TplName = "index.tpl"
+}

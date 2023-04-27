@@ -16,6 +16,7 @@ type GuardianController struct {
 }
 
 type GuardianInfo struct {
+	Id         int    `json:"id"`
 	Type       string `json:"type"`
 	Account    string `json:"account"`
 	VerifyCode string `json:"verifyCode"`
@@ -74,6 +75,41 @@ func (c *GuardianController) Add() {
 	if err != nil {
 		logs.Error(err)
 		c.ErrorJson("400000", "Add guardian faild!")
+		return
+	}
+
+	c.SuccessJson("", "")
+}
+
+// @Title Del
+// @Description 删除守护者(需验签)
+// @Param public_key header string true "public key"
+// @Param sign header string true "加签数据"
+// @Param address header string true "钱包地址"
+// @Param id body int true "守护者ID"
+// @Success 200 {object} controllers.RespJson
+// @router /del [post]
+func (c *GuardianController) Del() {
+	var tmp GuardianInfo
+	body := c.Ctx.Input.RequestBody
+	json.Unmarshal(body, &tmp)
+
+	id := tmp.Id
+
+	var guardian models.Guardian
+	guardian.Id = id
+	o := orm.NewOrm()
+	err := o.Read(&guardian, "id")
+	if err != nil {
+		logs.Error("守护者不存在")
+		c.ErrorJson("400000", "守护者不存在")
+		return
+	}
+
+	_, err = o.Delete(&guardian, "id")
+	if err != nil {
+		logs.Error(err)
+		c.ErrorJson("400000", "Delete guardian faild!")
 		return
 	}
 
