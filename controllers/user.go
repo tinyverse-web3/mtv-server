@@ -393,7 +393,7 @@ func (c *UserController) UpdateName() {
 		c.ErrorJson("400000", "用户名不能为空")
 	}
 
-	if strings.Index(CurUser.Name, "mtv_") == -1 {
+	if CurUser.Name != "" {
 		c.ErrorJson("400000", "用户名只能免费修改一次。")
 		return
 	}
