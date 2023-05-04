@@ -111,16 +111,28 @@ func (c *UserController) GetPassword() {
 
 	o := orm.NewOrm()
 	hashEmail := crypto.Md5(tmpUser.Email)
-
+	var password string
 	var user models.User
 	user.Email = hashEmail
 	err := o.Read(&user, "email")
 	if err != nil {
-		c.ErrorJson("400000", "获取数据失败")
-		return
+		var guardian models.Guardian
+		guardian.Account = hashEmail
+		err = o.Read(&guardian, "account")
+		if err != nil {
+			c.ErrorJson("400000", "获取数据失败")
+			return
+		} else {
+			user.Id = guardian.UserId
+			err = o.Read(&user, "id")
+			if err != nil {
+				c.ErrorJson("400000", "获取数据失败")
+				return
+			}
+		}
 	}
-
-	c.SuccessJson("", user.Password)
+	password = user.Password
+	c.SuccessJson("", password)
 }
 
 type GuardianSssInfo struct {

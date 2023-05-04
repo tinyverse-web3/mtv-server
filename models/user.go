@@ -8,7 +8,7 @@ import (
 type User struct {
 	Id              int    `orm:"auto; pk"`
 	Name            string `orm:"size(32);" json:"name"`
-	Password        string `orm:"size(32);" json:"password"`
+	Password        string `orm:"size(256);" json:"password"`
 	Email           string `orm:"size(255);" json:"email"`
 	Mobile          string `orm:"size(255);" json:"mobile"`
 	NostrPublicKey  string `orm:"size(128); null" json:"nostrPublicKey"`
