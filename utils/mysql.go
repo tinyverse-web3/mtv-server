@@ -70,6 +70,7 @@ func InitMySQL() {
 	orm.RegisterModel(new(models.NostrRelay))
 	orm.RegisterModel(new(models.Question))
 	orm.RegisterModel(new(models.QuestionTmp))
+	orm.RegisterModel(new(models.Record))
 	orm.RegisterModel(new(models.User))
 
 	//创建数据表

@@ -220,6 +220,7 @@ func (c *UserController) GetSssData4Question() {
 	user.Email = crypto.Md5(tmpUser.Email)
 	err := o.Read(&user, "email")
 	if err != nil {
+		logs.Info(err)
 		c.ErrorJson("400000", "获取分片数据失败")
 		return
 	}
