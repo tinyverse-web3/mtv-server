@@ -22,6 +22,7 @@ type UserController struct {
 
 type UserInfo struct {
 	Name            string            `json:"name"`
+	PublicKey       string            `json:"publicKey"`
 	Password        string            `json:"password"`
 	Email           string            `json:"email"`
 	ConfirmCode     string            `json:"confirmCode"`
@@ -239,6 +240,7 @@ func (c *UserController) GetSssData4Question() {
 	userInfo.Questions = data
 	userInfo.Email = user.Email
 	userInfo.QuestionSssData = deData
+	userInfo.PublicKey = user.PublicKey
 
 	c.SuccessJson("", userInfo)
 }
