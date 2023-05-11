@@ -13,7 +13,9 @@ type RecordController struct {
 
 // @Title Report
 // @Description 上报异常
-// @Param name body string true "名称"
+// @Param groupName body string true "组织名称"
+// @Param data body string true "内容"
+// @Param type body string true "类型"
 // @Success 200 {object} controllers.RespJson
 // @router /report [post]
 func (c *RecordController) Report() {
