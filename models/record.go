@@ -4,9 +4,9 @@ import "time"
 
 type Record struct {
 	Id         int       `orm:"auto; pk;" json:"id"`
-	Code       string    `orm:"size(32);" json:"code"`
-	Content    string    `orm:"size(1024);" json:"content"`
-	String     string    `orm:"size(32);" json:"type"`
+	GroupName  string    `orm:"size(32);" json:"groupName"`
+	Data       string    `orm:"size(1024);" json:"Data"`
+	Type       string    `orm:"size(32);" json:"type"`
 	CreateTime time.Time `orm:"type(datetime); auto_now_add; null" json:"createTime"`
 }
 
